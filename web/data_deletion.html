@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Your Data - StartupWorld</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .warning-box h3::before {
+            content: "⚠️";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #fff8e1;
+            border: 1px solid #ffcc02;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-top: 4px;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            color: #e65100;
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+        }
+
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background: #5a6268;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .contact-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .contact-info h3 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+
+        .contact-info p {
+            margin-bottom: 8px;
+            color: #6c757d;
+        }
+
+        .contact-info a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .contact-info a:hover {
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            color: #155724;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 20px;
+            color: #721c24;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Delete Your Data</h1>
+            <p>StartupWorld respects your privacy and right to data deletion</p>
+        </div>
+
+        <div class="main-content">
+            <div class="warning-box">
+                <h3>Important Notice</h3>
+                <p>This action will permanently delete all your data from our system. This includes your personal information, task history, attendance records, and account settings. This action cannot be undone.</p>
+            </div>
+
+            <form id="deletionForm">
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required placeholder="Enter your registered email address">
+                </div>
+
+                <div class="form-group">
+                    <label for="reason">Reason for Deletion *</label>
+                    <select id="reason" name="reason" required>
+                        <option value="">Select a reason</option>
+                        <option value="No longer using the service">No longer using the service</option>
+                        <option value="Privacy concerns">Privacy concerns</option>
+                        <option value="Dissatisfied with the service">Dissatisfied with the service</option>
+                        <option value="Account security concerns">Account security concerns</option>
+                        <option value="Moving to a different platform">Moving to a different platform</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group hidden" id="customReasonGroup">
+                    <label for="customReason">Please specify your reason *</label>
+                    <textarea id="customReason" name="customReason" placeholder="Please explain your reason for deletion"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="feedback">Feedback (Optional)</label>
+                    <textarea id="feedback" name="feedback" placeholder="Please share your experience and suggestions for improvement..."></textarea>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="confirmDeletion" name="confirmDeletion" required>
+                    <label for="confirmDeletion">I understand that this action will permanently delete all my data and cannot be undone.</label>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-cancel" onclick="window.history.back()">Cancel</button>
+                    <button type="submit" class="btn btn-delete">Delete My Data</button>
+                </div>
+            </form>
+
+            <div class="contact-info">
+                <h3>Need Help?</h3>
+                <p>If you have any questions or concerns, please contact our support team:</p>
+                <p><strong>Email:</strong> <a href="mailto:support@startupworld.com">support@startupworld.com</a></p>
+                <p><strong>Phone:</strong> <a href="tel:+1-555-0123">+1-555-0123</a></p>
+                <p><strong>Response time:</strong> Within 24 hours</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Show/hide custom reason field
+        document.getElementById('reason').addEventListener('change', function() {
+            const customReasonGroup = document.getElementById('customReasonGroup');
+            const customReasonInput = document.getElementById('customReason');
+            
+            if (this.value === 'Other') {
+                customReasonGroup.classList.remove('hidden');
+                customReasonInput.required = true;
+            } else {
+                customReasonGroup.classList.add('hidden');
+                customReasonInput.required = false;
+                customReasonInput.value = '';
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('deletionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Validate custom reason if "Other" is selected
+            if (data.reason === 'Other' && (!data.customReason || data.customReason.trim() === '')) {
+                alert('Please specify your reason for deletion.');
+                return;
+            }
+            
+            // Show confirmation dialog
+            const confirmed = confirm(
+                'This action cannot be undone. All your data including:\n\n' +
+                '• Personal information\n' +
+                '• Task history\n' +
+                '• Attendance records\n' +
+                '• Account settings\n\n' +
+                'Will be permanently deleted. Are you absolutely sure?'
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = document.querySelector('.btn-delete');
+            const originalText = submitBtn.textContent;
+            submitBtn.innerHTML = '<div class="spinner"></div>Processing...';
+            submitBtn.disabled = true;
+            
+            try {
+                // Simulate API call (replace with actual API endpoint)
+                const response = await fetch('/api/delete-user-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: data.email,
+                        reason: data.reason,
+                        customReason: data.customReason,
+                        feedback: data.feedback,
+                        deletionDate: new Date().toISOString()
+                    })
+                });
+                
+                if (response.ok) {
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'success-message';
+                    successDiv.innerHTML = `
+                        <h3>✅ Data Deletion Request Submitted</h3>
+                        <p>Your data deletion request has been successfully submitted. We will process your request within 30 days as required by data protection regulations.</p>
+                        <p>You will receive a confirmation email shortly.</p>
+                    `;
+                    
+                    document.querySelector('.main-content').insertBefore(successDiv, document.querySelector('.warning-box'));
+                    
+                    // Clear form
+                    document.getElementById('deletionForm').reset();
+                    document.getElementById('customReasonGroup').classList.add('hidden');
+                    
+                } else {
+                    throw new Error('Failed to submit deletion request');
+                }
+                
+            } catch (error) {
+                // Show error message
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>Failed to submit your deletion request. Please try again or contact our support team.</p>
+                    <p>Error: ${error.message}</p>
+                `;
+                
+                document.querySelector('.main-content').insertBefore(errorDiv, document.querySelector('.warning-box'));
+                
+            } finally {
+                // Restore button state
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Add some interactive feedback
+        document.querySelectorAll('input, select, textarea').forEach(element => {
+            element.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'scale(1.02)';
+                this.parentElement.style.transition = 'transform 0.2s ease';
+            });
+            
+            element.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body>
+</html> 

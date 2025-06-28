@@ -23,6 +23,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   int _currentIndex = 0;
   bool _isOpenToTasks = false;
   Timer? _timer;
+  Map<String, DateTime> _taskStartTimes = {}; // Track start times for in-progress tasks
 
   @override
   void initState() {
@@ -31,7 +32,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       _loadData();
     });
     // Start timer to update time display for in-progress tasks and attendance
-    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {});
       }
@@ -56,6 +57,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
       await taskProvider.loadTasksForUser(authProvider.currentUser!.id);
       await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
       
+      // Initialize task start times for in-progress tasks
+      final tasks = taskProvider.tasks;
+      for (final task in tasks) {
+        if (task.status == TaskStatus.inProgress && task.startedAt != null) {
+          _taskStartTimes[task.id] = task.startedAt!;
+        }
+      }
+      
       // Check if user is open to tasks
       final openTasks = await taskProvider.getOpenTasks(authProvider.currentUser!.id);
       setState(() {
@@ -68,6 +77,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Future<void> _updateTaskStatus(Task task, TaskStatus newStatus) async {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     await taskProvider.updateTaskStatus(task.id, newStatus);
+    
+    // Track start time for in-progress tasks
+    if (newStatus == TaskStatus.inProgress) {
+      _taskStartTimes[task.id] = DateTime.now();
+    } else if (newStatus == TaskStatus.completed) {
+      _taskStartTimes.remove(task.id); // Clear start time when completed
+    }
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -440,7 +456,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           onRefresh: _loadData,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 150.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -543,19 +559,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 2.5,
-                  children: [
-                    _buildStatCard('Total Tasks', tasks.length, Colors.blue),
-                    _buildStatCard('In Progress', tasks.where((t) => t.status == TaskStatus.inProgress).length, Colors.orange),
-                    _buildStatCard('Completed', tasks.where((t) => t.status == TaskStatus.completed).length, Colors.green),
-                    _buildStatCard('Assigned', tasks.where((t) => t.status == TaskStatus.assigned).length, Colors.purple),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Calculate responsive grid based on screen width
+                    final screenWidth = constraints.maxWidth;
+                    final crossAxisCount = screenWidth > 600 ? 4 : 2;
+                    final childWidth = (screenWidth - (crossAxisCount - 1) * 12 - 32) / crossAxisCount;
+                    
+                    return GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: childWidth / 100, // Responsive aspect ratio
+                      children: [
+                        _buildStatCard('Total Tasks', tasks.length, Colors.blue),
+                        _buildStatCard('In Progress', tasks.where((t) => t.status == TaskStatus.inProgress).length, Colors.orange),
+                        _buildStatCard('Completed', tasks.where((t) => t.status == TaskStatus.completed).length, Colors.green),
+                        _buildStatCard('Assigned', tasks.where((t) => t.status == TaskStatus.assigned).length, Colors.purple),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -674,9 +699,31 @@ class _StudentDashboardState extends State<StudentDashboard> {
                             task.title,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text(
-                            '${task.team} • ${task.project}',
-                            style: TextStyle(color: Colors.grey[600]),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${task.team} • ${task.project}',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              if (task.status == TaskStatus.inProgress) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(Icons.timer, size: 12, color: Colors.blue[600]),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      _getFormattedTimeSpent(task),
+                                      style: TextStyle(
+                                        color: Colors.blue[600],
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                           trailing: Container(
                             padding: const EdgeInsets.symmetric(
@@ -833,6 +880,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                     color: Colors.grey[600],
                                     fontSize: 12,
                                   ),
+                                ),
+                              ],
+                              // Show timer for in-progress tasks
+                              if (task.status == TaskStatus.inProgress) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(Icons.timer, size: 16, color: Colors.blue[600]),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Time: ${_getFormattedTimeSpent(task)}',
+                                      style: TextStyle(
+                                        color: Colors.blue[600],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                               const SizedBox(height: 12),
@@ -1045,30 +1110,66 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
+            const SizedBox(height: 6),
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
+  }
+
+  // Calculate current time spent for a task
+  Duration _getCurrentTimeSpent(Task task) {
+    if (task.status == TaskStatus.inProgress) {
+      // Use tracked start time if available, otherwise use task's startedAt
+      final startTime = _taskStartTimes[task.id] ?? task.startedAt;
+      if (startTime != null) {
+        return DateTime.now().difference(startTime);
+      }
+    }
+    return task.timeSpent ?? Duration.zero;
+  }
+
+  // Get formatted time string for a task
+  String _getFormattedTimeSpent(Task task) {
+    final duration = _getCurrentTimeSpent(task);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    final seconds = duration.inSeconds % 60;
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${seconds}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
+    }
   }
 } 

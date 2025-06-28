@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/api_client.dart';
 import '../widgets/environment_selector.dart';
 import '../config/environment.dart';
+import '../config/app_config.dart';
 import 'register_screen.dart';
 import 'student_dashboard.dart';
 import 'staff_dashboard.dart';
@@ -46,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _selectedEnvironment = newEnvironment;
     });
     
-    // Update the environment configuration
+    // Update the environment configuration in both systems
     switch (newEnvironment) {
       case Environment.development:
         EnvironmentConfig.setEnvironment(Environment.development);
@@ -58,6 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
         EnvironmentConfig.setEnvironment(Environment.production);
         break;
     }
+    
+    // Verify the environment was updated correctly
+    print('🔧 EnvironmentConfig.environment after change: ${EnvironmentConfig.environment}');
+    print('🔧 EnvironmentConfig.baseUrl after change: ${EnvironmentConfig.baseUrl}');
+    print('🔧 AppConfig.baseUrl after change: ${AppConfig.baseUrl}');
+    print('🔧 AppConfig.apiKey after change: ${AppConfig.apiKey.substring(0, 10)}...');
     
     // Show feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
@@ -101,6 +109,15 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // Debug logging for environment
+      print('🔐 LOGIN ATTEMPT DEBUG');
+      print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
+      print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
+      print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+      print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
+      print('👤 User Type: $_selectedUserType');
+      print('📧 Email: ${_emailController.text.trim()}');
+      
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.login(
         email: _emailController.text.trim(),
@@ -319,7 +336,44 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
+                        // Test Environment Configuration Button
+                        ElevatedButton(
+                          onPressed: () {
+                            print('🧪 TESTING ENVIRONMENT CONFIGURATION');
+                            print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
+                            print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
+                            print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+                            
+                            // Test API client
+                            final testClient = apiClient;
+                            print('🔧 API Client Base URL: ${testClient.options.baseUrl}');
+                            print('🔧 API Client Timeout: ${testClient.options.connectTimeout}');
+                            
+                            // Show in snackbar
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Environment: ${EnvironmentConfig.environment}\nBase URL: ${testClient.options.baseUrl}'),
+                                duration: const Duration(seconds: 5),
+                                backgroundColor: Colors.blue,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Test Environment Config',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           height: 50,

@@ -19,7 +19,7 @@ class AppConfig {
       'enableLogging': true,
     },
     Environment.production: {
-      'baseUrl': 'https://startupworld.in',
+      'baseUrl': 'https://startupworld.in/',
       'apiKey': 'efc10cqkr4Ta29EIYolGsAxRiwOBVmDgn3X9e5ZMKzyC8bsv7u',
       'timeout': 120, // seconds
       'enableLogging': false,

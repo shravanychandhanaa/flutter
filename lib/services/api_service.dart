@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../config/environment.dart';
 import 'api_client.dart';
+import 'dart:convert';
 
 class ApiService {
   // Test method to debug CORS issues
@@ -10,6 +11,10 @@ class ApiService {
     try {
       print('🧪 Testing API connection...');
       print('🌍 Platform: ${kIsWeb ? 'Web' : 'Mobile'}');
+      print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
+      print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
+      print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+      print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
       
       // Test with Dio first
       try {
@@ -126,14 +131,31 @@ class ApiService {
 
   // Student Login with fallback
   static Future<Response> studentLogin(Map<String, dynamic> data) async {
+    print('🎓 STUDENT LOGIN API DEBUG');
+    print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
+    print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
+    print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+    print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
+    
+    // Get the current API client configuration
+    final currentApiClient = apiClient;
+    print('🔧 Current API Client Base URL: ${currentApiClient.options.baseUrl}');
+    print('🔧 Current API Client Timeout: ${currentApiClient.options.connectTimeout}');
+    
+    // Construct the full URL
+    final fullUrl = '${currentApiClient.options.baseUrl}Webservices/api3.php?action=student_login';
+    print('📡 Full URL being called: $fullUrl');
+    print('📡 Expected URL for testing: https://test.startupworld.in/Webservices/api3.php?action=student_login');
+    print('📡 Expected URL for development: https://dev.startupworld.in/Webservices/api3.php?action=student_login');
+    
     try {
-      return await apiClient.post('Webservices/api3.php?action=student_login', data: data);
+      return await currentApiClient.post('Webservices/api3.php?action=student_login', data: data);
     } catch (e) {
       // Fallback to platform-specific HTTP client (only on mobile)
       if (!kIsWeb) {
         print('⚠️ Dio failed, trying platform HTTP client for student login...');
         try {
-          final result = await PlatformHttpClient.post('${apiClient.options.baseUrl}Webservices/api3.php?action=student_login', data);
+          final result = await PlatformHttpClient.post('${currentApiClient.options.baseUrl}Webservices/api3.php?action=student_login', data);
           return Response(
             requestOptions: RequestOptions(path: 'Webservices/api3.php?action=student_login'),
             statusCode: result['statusCode'],
@@ -198,14 +220,50 @@ class ApiService {
 
   // Staff Login with fallback
   static Future<Response> staffLogin(Map<String, dynamic> data) async {
+    // Enhanced debug logging for production
+    print('🚀 STAFF LOGIN API DEBUG - PRODUCTION');
+    print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
+    print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
+    print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+    print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
+    
+    // Get the current API client configuration
+    final currentApiClient = apiClient;
+    print('🔧 Current API Client Base URL: ${currentApiClient.options.baseUrl}');
+    print('🔧 Current API Client Timeout: ${currentApiClient.options.connectTimeout}');
+    
+    // Construct the full URL
+    final fullUrl = '${currentApiClient.options.baseUrl}Webservices/api3.php?action=staff_login';
+    print('📡 Full URL being called: $fullUrl');
+    print('📡 Expected URL for testing: https://test.startupworld.in/Webservices/api3.php?action=staff_login');
+    print('📡 Expected URL for development: https://dev.startupworld.in/Webservices/api3.php?action=staff_login');
+    
+    print('📤 Request Body (JSON): ${jsonEncode(data)}');
+    print('📤 Request Body (Formatted):');
+    data.forEach((key, value) {
+      print('   $key: $value');
+    });
+    print('📤 Request Headers: ${currentApiClient.options.headers}');
+    print('📤 Dio Base URL: ${currentApiClient.options.baseUrl}');
+    print('📤 Dio Timeout: ${currentApiClient.options.connectTimeout}');
+    
     try {
-      return await apiClient.post('Webservices/api3.php?action=staff_login', data: data);
+      final response = await currentApiClient.post('Webservices/api3.php?action=staff_login', data: data);
+      
+      print('📥 API Response Status: ${response.statusCode}');
+      print('📥 API Response Headers: ${response.headers}');
+      print('📥 API Response Data Type: ${response.data.runtimeType}');
+      print('📥 API Response Body (Raw): ${response.data}');
+      print('📥 API Response Body (JSON): ${jsonEncode(response.data)}');
+      
+      return response;
     } catch (e) {
       // Fallback to platform-specific HTTP client (only on mobile)
       if (!kIsWeb) {
         print('⚠️ Dio failed, trying platform HTTP client for staff login...');
+        print('❌ Dio Error: $e');
         try {
-          final result = await PlatformHttpClient.post('${apiClient.options.baseUrl}Webservices/api3.php?action=staff_login', data);
+          final result = await PlatformHttpClient.post('${currentApiClient.options.baseUrl}Webservices/api3.php?action=staff_login', data);
           return Response(
             requestOptions: RequestOptions(path: 'Webservices/api3.php?action=staff_login'),
             statusCode: result['statusCode'],
@@ -402,5 +460,21 @@ class ApiService {
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
     requestData['api_key'] = AppConfig.apiKey;
     return await apiClient.post('Version1/Forgot_password.php?x=varify_otp', data: requestData);
+  }
+
+  // Delete User Data
+  static Future<Response> deleteUserData(Map<String, dynamic> data) async {
+    Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
+    requestData['api_key'] = AppConfig.apiKey;
+    return await apiClient.post('Webservices/api3.php?action=delete_user_data', data: requestData);
+  }
+
+  // Helper methods for debug logging
+  static String getStaffLoginUrl() {
+    return '${apiClient.options.baseUrl}Webservices/api3.php?action=staff_login';
+  }
+
+  static Map<String, dynamic> getStaffLoginHeaders() {
+    return apiClient.options.headers;
   }
 } 

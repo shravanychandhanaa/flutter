@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../models/user.dart';
 import '../config/app_config.dart';
 import 'api_service.dart';
+import 'api_client.dart';
 
 class AuthService {
   static const String _currentUserKey = 'current_user';
@@ -123,7 +124,39 @@ class AuthService {
       if (userType == UserType.student) {
         response = await ApiService.studentLogin(requestData);
       } else {
+        // Test print to verify this section is reached
+        print('🔍 ENTERING STAFF LOGIN SECTION');
+        
+        // Enhanced debug logging for staff login in production
+        print('🚀 STAFF LOGIN DEBUG - PRODUCTION');
+        print('📡 Full API URL: ${ApiService.getStaffLoginUrl()}');
+        print('📤 Request Body (JSON): ${jsonEncode(requestData)}');
+        print('📤 Request Body (Formatted):');
+        requestData.forEach((key, value) {
+          print('   $key: $value');
+        });
+        print('📤 Request Headers: ${ApiService.getStaffLoginHeaders()}');
+        
         response = await ApiService.staffLogin(requestData);
+        
+        print('📥 Response Status Code: ${response.statusCode}');
+        print('📥 Response Headers: ${response.headers}');
+        print('📥 Response Data Type: ${response.data.runtimeType}');
+        print('📥 Response Body (Raw): ${response.data}');
+        print('📥 Response Body (JSON): ${jsonEncode(response.data)}');
+        
+        // Log response details for debugging
+        if (response.data is Map) {
+          print('📥 Response Keys: ${response.data.keys.toList()}');
+          print('📥 Response Status Field: ${response.data['responseStatus']}');
+          print('📥 Response Message: ${response.data['responseMessage']}');
+          if (response.data['Staff_Details'] != null) {
+            print('📥 Staff Details Count: ${response.data['Staff_Details'].length}');
+            if (response.data['Staff_Details'].isNotEmpty) {
+              print('📥 First Staff Member: ${jsonEncode(response.data['Staff_Details'][0])}');
+            }
+          }
+        }
       }
 
       print('📡 Response status: ${response.statusCode}');
@@ -419,6 +452,43 @@ class AuthService {
       return {
         'success': false,
         'message': 'Failed to verify OTP: $e',
+      };
+    }
+  }
+
+  // Delete user data
+  Future<Map<String, dynamic>> deleteUserData({
+    required String userId,
+    required String reason,
+    String? feedback,
+    String? customReason,
+  }) async {
+    try {
+      final response = await ApiService.deleteUserData({
+        'user_id': userId,
+        'reason': reason,
+        'feedback': feedback ?? '',
+        'custom_reason': customReason ?? '',
+        'deletion_date': DateTime.now().toIso8601String(),
+      });
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        return {
+          'success': responseData['status'] == 'success',
+          'message': responseData['message'] ?? 'Data deleted successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to delete data: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      print('Delete user data error: $e');
+      return {
+        'success': false,
+        'message': 'Failed to delete data: $e',
       };
     }
   }

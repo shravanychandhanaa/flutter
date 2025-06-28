@@ -324,31 +324,40 @@ class TaskService {
   Future<Map<String, dynamic>> updateTaskStatus(String taskId, TaskStatus newStatus) async {
     try {
       Map<String, dynamic> updateData = {
-        'task_id': taskId,
+        'id': taskId,
+        'activity_status': _taskStatusToString(newStatus),
         'status': _taskStatusToString(newStatus),
+        'updated_date': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+        'submit': 'submit',
       };
 
       // Add time tracking data
       if (newStatus == TaskStatus.inProgress) {
         updateData['started_at'] = DateTime.now().toIso8601String();
+        updateData['started_date'] = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
       } else if (newStatus == TaskStatus.completed) {
         updateData['completed_at'] = DateTime.now().toIso8601String();
+        updateData['completed_date'] = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
       }
 
+      print('📤 Updating task status: $updateData');
+
       final response = await ApiService.addTask(updateData);
+
+      print('📥 Update task status response: ${response.statusCode} - ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
         
-        if (responseData['status'] == 'success') {
+        if (responseData['responseStatus'] == 200 || responseData['status'] == 'success') {
           return {
             'success': true,
-            'message': responseData['message'] ?? 'Task status updated successfully',
+            'message': responseData['responseMessage'] ?? responseData['message'] ?? 'Task status updated successfully',
           };
         } else {
           return {
             'success': false,
-            'message': responseData['message'] ?? 'Failed to update task status',
+            'message': responseData['responseMessage'] ?? responseData['message'] ?? 'Failed to update task status',
           };
         }
       } else {
@@ -649,7 +658,7 @@ class TaskService {
       final response = await ApiService.getAllTasksForStaff(requestData);
 
       print('📥 getAllStudentTasksForStaff response status: ${response.statusCode}');
-      print('�� getAllStudentTasksForStaff response data: ${response.data}');
+      print('📥 getAllStudentTasksForStaff response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;

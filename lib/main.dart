@@ -8,6 +8,8 @@ import 'providers/student_list_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/student_dashboard.dart';
 import 'screens/staff_dashboard.dart';
+import 'screens/terms_conditions_screen.dart';
+import 'screens/delete_user_data_screen.dart';
 import 'models/user.dart';
 import 'services/api_service.dart';
 
@@ -47,6 +49,10 @@ class MainApp extends StatelessWidget {
         ),
         home: const AuthWrapper(),
         debugShowCheckedModeBanner: false,
+        routes: {
+          '/terms-conditions': (context) => const TermsConditionsScreen(),
+          '/delete-user-data': (context) => const DeleteUserDataScreen(),
+        },
       ),
     );
   }

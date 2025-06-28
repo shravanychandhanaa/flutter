@@ -1282,22 +1282,19 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
-                height: screenWidth < 600 ? 200 : 120, // Fixed height to prevent overlapping
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: spacing,
-                  mainAxisSpacing: spacing,
-                  childAspectRatio: childAspectRatio,
-                  children: [
-                    _buildStatCard('Total Tasks', stats['Total']!, Colors.blue),
-                    _buildStatCard('Assigned', stats['Assigned']!, Colors.orange),
-                    _buildStatCard('In Progress', stats['In Progress']!, Colors.blue),
-                    _buildStatCard('Completed', stats['Completed']!, Colors.green),
-                  ],
-                ),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                childAspectRatio: childAspectRatio,
+                children: [
+                  _buildStatCard('Total Tasks', stats['Total']!, Colors.blue),
+                  _buildStatCard('Assigned', stats['Assigned']!, Colors.orange),
+                  _buildStatCard('In Progress', stats['In Progress']!, Colors.blue),
+                  _buildStatCard('Completed', stats['Completed']!, Colors.green),
+                ],
               ),
               const SizedBox(height: 24),
 
@@ -2335,35 +2332,35 @@ class _StaffDashboardState extends State<StaffDashboard> {
   Widget _buildStatCard(String title, int count, Color color) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
+            const SizedBox(height: 6),
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

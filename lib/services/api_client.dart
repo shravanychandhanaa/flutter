@@ -190,7 +190,7 @@ class ServerCompatibilityInterceptor extends Interceptor {
 }
 
 // Create Dio instances with environment-specific configuration
-final Dio apiClient = Dio(BaseOptions(
+Dio get apiClient => Dio(BaseOptions(
   baseUrl: EnvironmentConfig.baseUrl,
   connectTimeout: EnvironmentConfig.timeout,
   receiveTimeout: EnvironmentConfig.timeout,
