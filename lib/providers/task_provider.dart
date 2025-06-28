@@ -52,6 +52,8 @@ class TaskProvider with ChangeNotifier {
 
     try {
       _tasks = await _taskService.getTasksForUser(userId);
+      // Sort tasks by assigned date (newest first)
+      _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
       _filteredTasks = _tasks;
     } catch (e) {
       _errorMessage = 'Failed to load tasks: $e';
@@ -70,6 +72,8 @@ class TaskProvider with ChangeNotifier {
     try {
       _tasks = await _taskService.getAllTasks();
       
+      // Sort tasks by assigned date (newest first)
+      _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
       _filteredTasks = _tasks;
       
       // Debug: Print task details
@@ -325,6 +329,8 @@ class TaskProvider with ChangeNotifier {
 
   // Clear filters
   void clearFilters() {
+    // Sort tasks by assigned date (newest first) before setting filtered tasks
+    _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
     _filteredTasks = _tasks;
     _errorMessage = null;
     notifyListeners();
@@ -333,7 +339,9 @@ class TaskProvider with ChangeNotifier {
   // Set tasks directly (for staff dashboard)
   void setTasks(List<Task> tasks) {
     _tasks = tasks;
-    _filteredTasks = tasks;
+    // Sort tasks by assigned date (newest first)
+    _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
+    _filteredTasks = _tasks;
     _isLoading = false;
     _errorMessage = null;
     notifyListeners();

@@ -147,10 +147,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.work_outline,
-                              size: 80,
-                              color: Color(0xFF667eea),
+                            Image.asset(
+                              'assets/icon/app_icon.png',
+                              width: 80,
+                              height: 80,
                             ),
                             const SizedBox(height: 24),
                             const Text(
@@ -167,27 +167,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Color(0xFF718096),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Current Environment Indicator
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Color(EnvironmentConfig.environmentColor).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Color(EnvironmentConfig.environmentColor),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                'Environment: ${EnvironmentConfig.environmentName}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(EnvironmentConfig.environmentColor),
-                                ),
                               ),
                             ),
                             const SizedBox(height: 32),
