@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/attendance.dart';
+import '../models/user.dart';
 import '../services/attendance_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
@@ -7,6 +8,8 @@ class AttendanceProvider with ChangeNotifier {
   Attendance? _todayAttendance;
   List<Attendance> _userAttendance = [];
   List<Attendance> _allAttendance = [];
+  List<Attendance> _pendingStudentApprovals = [];
+  List<Attendance> _pendingStaffApprovals = [];
   Map<String, dynamic>? _userStats;
   Map<String, dynamic>? _overallStats;
   bool _isLoading = false;
@@ -15,6 +18,8 @@ class AttendanceProvider with ChangeNotifier {
   Attendance? get todayAttendance => _todayAttendance;
   List<Attendance> get userAttendance => _userAttendance;
   List<Attendance> get allAttendance => _allAttendance;
+  List<Attendance> get pendingStudentApprovals => _pendingStudentApprovals;
+  List<Attendance> get pendingStaffApprovals => _pendingStaffApprovals;
   Map<String, dynamic>? get userStats => _userStats;
   Map<String, dynamic>? get overallStats => _overallStats;
   bool get isLoading => _isLoading;
@@ -26,14 +31,43 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Check in user
-  Future<bool> checkIn(String userId, String userName) async {
+  // Mark attendance as present (requires approval)
+  Future<bool> markAttendancePresent(String userId, String userName, String userEmail, UserType userType, {String? notes}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await _attendanceService.checkIn(userId, userName);
+      final result = await _attendanceService.markAttendancePresent(userId, userName, userEmail, userType, notes: notes);
+      
+      if (result['success'] == true) {
+        _todayAttendance = result['attendance'];
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = result['message'] ?? 'Failed to mark attendance';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      print('AttendanceProvider markAttendancePresent error: $e');
+      _errorMessage = 'Failed to mark attendance: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Check in user (updated for approval workflow)
+  Future<bool> checkIn(String userId, String userName, String userEmail, UserType userType) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _attendanceService.checkIn(userId, userName, userEmail, userType);
       
       if (result['success'] == true) {
         _todayAttendance = result['attendance'];
@@ -170,13 +204,13 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   // Mark attendance manually (for staff)
-  Future<bool> markAttendance(String userId, String userName, DateTime date, bool isPresent, {String? notes}) async {
+  Future<bool> markAttendance(String userId, String userName, String userEmail, DateTime date, bool isPresent, UserType userType, {String? notes}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await _attendanceService.markAttendance(userId, userName, date, isPresent, notes: notes);
+      final result = await _attendanceService.markAttendance(userId, userName, userEmail, date, isPresent, userType, notes: notes);
       
       if (result['success'] == true) {
         await loadAllAttendance();
@@ -247,6 +281,104 @@ class AttendanceProvider with ChangeNotifier {
       return '${hours}h ${minutes}m';
     } else {
       return '${minutes}m';
+    }
+  }
+
+  // Load pending student approvals (for staff)
+  Future<void> loadPendingStudentApprovals() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _pendingStudentApprovals = await _attendanceService.getPendingStudentApprovals();
+    } catch (e) {
+      _errorMessage = 'Failed to load pending student approvals: $e';
+      print('AttendanceProvider loadPendingStudentApprovals error: $e');
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // Load pending staff approvals (for admin)
+  Future<void> loadPendingStaffApprovals() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _pendingStaffApprovals = await _attendanceService.getPendingStaffApprovals();
+    } catch (e) {
+      _errorMessage = 'Failed to load pending staff approvals: $e';
+      print('AttendanceProvider loadPendingStaffApprovals error: $e');
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // Approve attendance
+  Future<bool> approveAttendance(String attendanceId, String approvedBy) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _attendanceService.approveAttendance(attendanceId, approvedBy);
+      
+      if (result['success'] == true) {
+        // Reload pending approvals
+        await loadPendingStudentApprovals();
+        await loadPendingStaffApprovals();
+        await loadAllAttendance();
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = result['message'] ?? 'Failed to approve attendance';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      print('AttendanceProvider approveAttendance error: $e');
+      _errorMessage = 'Failed to approve attendance: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Reject attendance
+  Future<bool> rejectAttendance(String attendanceId, String rejectedBy, String reason) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _attendanceService.rejectAttendance(attendanceId, rejectedBy, reason);
+      
+      if (result['success'] == true) {
+        // Reload pending approvals
+        await loadPendingStudentApprovals();
+        await loadPendingStaffApprovals();
+        await loadAllAttendance();
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = result['message'] ?? 'Failed to reject attendance';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      print('AttendanceProvider rejectAttendance error: $e');
+      _errorMessage = 'Failed to reject attendance: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 } 

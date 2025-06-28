@@ -8,11 +8,13 @@ import '../models/student_list_item.dart';
 import '../providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/student_list_provider.dart';
+import '../providers/attendance_provider.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/staff_bottom_navigation.dart';
 import 'login_screen.dart';
 import 'create_task_screen.dart';
 import 'attendance_report_screen.dart';
+import 'attendance_approval_screen.dart';
 import '../services/task_service.dart';
 
 class StaffDashboard extends StatefulWidget {
@@ -2418,34 +2420,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
   }
 
   Widget _buildReportsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.assessment,
-            size: 64,
-            color: _getThemeColor(),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Reports & Analytics',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Coming soon!',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const AttendanceApprovalScreen();
   }
 
   @override
@@ -2536,7 +2511,16 @@ class _StaffDashboardState extends State<StaffDashboard> {
                   foregroundColor: Colors.white,
                   child: const Icon(Icons.add),
                 )
-              : null,
+              : _currentIndex == 3 // Attendance tab
+                  ? FloatingActionButton(
+                      onPressed: () {
+                        _showMarkAttendanceDialog();
+                      },
+                      backgroundColor: _getThemeColor(),
+                      foregroundColor: Colors.white,
+                      child: const Icon(Icons.person_add),
+                    )
+                  : null,
         );
       },
     );
@@ -2551,7 +2535,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
       case 2:
         return 'Student List';
       case 3:
-        return 'Reports';
+        return 'Attendance Approvals';
       default:
         return 'Staff Dashboard';
     }
@@ -2589,6 +2573,159 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 overflow: TextOverflow.ellipsis,
                 maxLines: 2,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMarkAttendanceDialog() {
+    final TextEditingController notesController = TextEditingController();
+    String selectedUserId = '';
+    bool isPresent = true;
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Mark Attendance'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // User selection
+                DropdownButtonFormField<String>(
+                  value: selectedUserId.isEmpty ? null : selectedUserId,
+                  decoration: const InputDecoration(
+                    labelText: 'Select Student',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _allUsers
+                      .where((user) => user.userType == UserType.student)
+                      .map((user) => DropdownMenuItem(
+                            value: user.id,
+                            child: Text(user.name),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedUserId = value ?? '';
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                
+                // Date selection
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      setState(() {
+                        selectedDate = date;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      DateFormat('MMM dd, yyyy').format(selectedDate),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Present/Absent toggle
+                Row(
+                  children: [
+                    const Text('Status: '),
+                    const SizedBox(width: 16),
+                    ChoiceChip(
+                      label: const Text('Present'),
+                      selected: isPresent,
+                      onSelected: (selected) {
+                        setState(() {
+                          isPresent = selected;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('Absent'),
+                      selected: !isPresent,
+                      onSelected: (selected) {
+                        setState(() {
+                          isPresent = !selected;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Notes
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selectedUserId.isEmpty
+                  ? null
+                  : () async {
+                      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+                      
+                      final selectedUser = _allUsers.firstWhere((user) => user.id == selectedUserId);
+                      
+                      final success = await attendanceProvider.markAttendance(
+                        selectedUser.id,
+                        selectedUser.name,
+                        selectedUser.email,
+                        selectedDate,
+                        isPresent,
+                        selectedUser.userType,
+                        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                      );
+                      
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Attendance marked for ${selectedUser.name}'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(attendanceProvider.errorMessage ?? 'Failed to mark attendance'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: const Text('Mark Attendance'),
             ),
           ],
         ),

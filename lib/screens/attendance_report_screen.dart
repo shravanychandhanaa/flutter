@@ -158,33 +158,46 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 2.5,
+                    Column(
                       children: [
-                        _buildStatCard(
-                          'Total Records',
-                          attendanceProvider.overallStats!['totalRecords'].toString(),
-                          Colors.blue,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                'Total Records',
+                                attendanceProvider.overallStats!['totalRecords'].toString(),
+                                Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildStatCard(
+                                'Present',
+                                attendanceProvider.overallStats!['presentRecords'].toString(),
+                                Colors.green,
+                              ),
+                            ),
+                          ],
                         ),
-                        _buildStatCard(
-                          'Present',
-                          attendanceProvider.overallStats!['presentRecords'].toString(),
-                          Colors.green,
-                        ),
-                        _buildStatCard(
-                          'Absent',
-                          attendanceProvider.overallStats!['absentRecords'].toString(),
-                          Colors.red,
-                        ),
-                        _buildStatCard(
-                          'Attendance Rate',
-                          '${attendanceProvider.overallStats!['overallAttendanceRate'].toStringAsFixed(1)}%',
-                          Colors.orange,
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                'Absent',
+                                attendanceProvider.overallStats!['absentRecords'].toString(),
+                                Colors.red,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildStatCard(
+                                'Attendance Rate',
+                                '${attendanceProvider.overallStats!['overallAttendanceRate'].toStringAsFixed(1)}%',
+                                Colors.orange,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -321,6 +334,12 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                                   Text('Hours: ${attendance.formattedTotalHours}'),
                                 if (attendance.notes != null && attendance.notes!.isNotEmpty)
                                   Text('Notes: ${attendance.notes}'),
+                                if (attendance.status == AttendanceStatus.rejected && attendance.rejectionReason?.isNotEmpty == true)
+                                  Text('Rejection: ${attendance.rejectionReason}', style: const TextStyle(color: Colors.red)),
+                                if (attendance.status == AttendanceStatus.rejected && attendance.approvedBy != null)
+                                  Text('Rejected by: ${attendance.approvedBy}', style: const TextStyle(color: Colors.red, fontSize: 12)),
+                                if (attendance.status == AttendanceStatus.approved && attendance.approvedBy != null)
+                                  Text('Approved by: ${attendance.approvedBy}', style: const TextStyle(color: Colors.green, fontSize: 12)),
                               ],
                             ),
                             trailing: attendance.isCheckedIn

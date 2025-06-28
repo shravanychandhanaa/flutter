@@ -10,6 +10,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/student_bottom_navigation.dart';
 import 'login_screen.dart';
 import 'create_task_screen.dart';
+import 'student_attendance_screen.dart';
 import 'dart:async';
 
 class StudentDashboard extends StatefulWidget {
@@ -385,9 +386,23 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
     
     if (authProvider.currentUser != null) {
+      // Check if user email is available
+      final userEmail = authProvider.currentUser!.email;
+      if (userEmail.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User email not available. Please contact administrator.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       final success = await attendanceProvider.checkIn(
         authProvider.currentUser!.id,
         authProvider.currentUser!.name,
+        userEmail,
+        authProvider.currentUser!.userType,
       );
       
       if (success && mounted) {
@@ -1056,38 +1071,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildAttendanceTab() {
-    return Consumer<AttendanceProvider>(
-      builder: (context, attendanceProvider, child) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.check_circle,
-                size: 64,
-                color: _getThemeColor(),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Attendance Management',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Coming soon!',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    return const StudentAttendanceScreen();
   }
 
   Widget _buildProfileTab() {
