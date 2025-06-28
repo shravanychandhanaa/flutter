@@ -6,73 +6,6 @@ import 'api_client.dart';
 import 'dart:convert';
 
 class ApiService {
-  // Test method to debug CORS issues
-  static Future<Map<String, dynamic>> testConnection() async {
-    try {
-      print('🧪 Testing API connection...');
-      print('🌍 Platform: ${kIsWeb ? 'Web' : 'Mobile'}');
-      print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
-      print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
-      print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
-      print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
-      
-      // Test with Dio first
-      try {
-        final response = await apiClient.post('Webservices/api3.php?action=student_login', data: {
-          'email': 'balkawadesayali56879@gmail.com',
-          'pwd': '12',
-          'usertype': '1',
-          'api_key': AppConfig.apiKey,
-        });
-        print('✅ Dio test successful: ${response.statusCode}');
-        return {
-          'success': true,
-          'method': 'dio',
-          'statusCode': response.statusCode,
-          'data': response.data,
-        };
-      } catch (e) {
-        print('❌ Dio test failed: $e');
-        
-        // Test with platform-specific HTTP client
-        try {
-          final result = await PlatformHttpClient.post(
-            '${apiClient.options.baseUrl}Webservices/api3.php?action=student_login',
-            {
-              'email': 'balkawadesayali56879@gmail.com',
-              'pwd': '12',
-              'usertype': '1',
-              'api_key': AppConfig.apiKey,
-            }
-          );
-          print('✅ Platform HTTP test successful: ${result['statusCode']}');
-          return {
-            'success': true,
-            'method': 'platform_http',
-            'statusCode': result['statusCode'],
-            'data': result['data'],
-          };
-        } catch (e2) {
-          print('❌ Platform HTTP test failed: $e2');
-          return {
-            'success': false,
-            'error': 'Both methods failed',
-            'platform': kIsWeb ? 'web' : 'mobile',
-            'dio_error': e.toString(),
-            'platform_error': e2.toString(),
-          };
-        }
-      }
-    } catch (e) {
-      print('❌ Test connection failed: $e');
-      return {
-        'success': false,
-        'error': e.toString(),
-        'platform': kIsWeb ? 'web' : 'mobile',
-      };
-    }
-  }
-
   // Error Logging
   static Future<Response> logError(Map<String, dynamic> data) async {
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
@@ -131,29 +64,14 @@ class ApiService {
 
   // Student Login with fallback
   static Future<Response> studentLogin(Map<String, dynamic> data) async {
-    print('🎓 STUDENT LOGIN API DEBUG');
-    print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
-    print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
-    print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
-    print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
-    
     // Get the current API client configuration
     final currentApiClient = apiClient;
-    print('🔧 Current API Client Base URL: ${currentApiClient.options.baseUrl}');
-    print('🔧 Current API Client Timeout: ${currentApiClient.options.connectTimeout}');
-    
-    // Construct the full URL
-    final fullUrl = '${currentApiClient.options.baseUrl}Webservices/api3.php?action=student_login';
-    print('📡 Full URL being called: $fullUrl');
-    print('📡 Expected URL for testing: https://test.startupworld.in/Webservices/api3.php?action=student_login');
-    print('📡 Expected URL for development: https://dev.startupworld.in/Webservices/api3.php?action=student_login');
     
     try {
       return await currentApiClient.post('Webservices/api3.php?action=student_login', data: data);
     } catch (e) {
       // Fallback to platform-specific HTTP client (only on mobile)
       if (!kIsWeb) {
-        print('⚠️ Dio failed, trying platform HTTP client for student login...');
         try {
           final result = await PlatformHttpClient.post('${currentApiClient.options.baseUrl}Webservices/api3.php?action=student_login', data);
           return Response(
@@ -162,11 +80,9 @@ class ApiService {
             data: result['data'],
           );
         } catch (e2) {
-          print('❌ Platform HTTP client also failed: $e2');
           rethrow;
         }
       } else {
-        print('❌ Dio failed on web platform: $e');
         rethrow;
       }
     }
@@ -185,6 +101,7 @@ class ApiService {
   static Future<Response> registerStudent(Map<String, dynamic> data) async {
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
     requestData['api_key'] = AppConfig.apiKey;
+    
     return await apiClient.post('Webservices/api3.php?action=student_registration', data: requestData);
   }
 
@@ -211,6 +128,15 @@ class ApiService {
     return await apiClient.post('Webservices/api3.php?action=Validate_CollegeID', data: requestData);
   }
 
+  // Get All Colleges
+  static Future<Response> getAllColleges() async {
+    Map<String, dynamic> requestData = {
+      'api_key': AppConfig.apiKey,
+    };
+    
+    return await apiClient.post('Webservices/api3.php?action=college_list', data: requestData);
+  }
+
   // Teacher Registration
   static Future<Response> registerTeacher(Map<String, dynamic> data) async {
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
@@ -220,48 +146,15 @@ class ApiService {
 
   // Staff Login with fallback
   static Future<Response> staffLogin(Map<String, dynamic> data) async {
-    // Enhanced debug logging for production
-    print('🚀 STAFF LOGIN API DEBUG - PRODUCTION');
-    print('🔧 EnvironmentConfig.environment: ${EnvironmentConfig.environment}');
-    print('🔧 EnvironmentConfig.baseUrl: ${EnvironmentConfig.baseUrl}');
-    print('🔧 AppConfig.baseUrl: ${AppConfig.baseUrl}');
-    print('🔧 AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
-    
     // Get the current API client configuration
     final currentApiClient = apiClient;
-    print('🔧 Current API Client Base URL: ${currentApiClient.options.baseUrl}');
-    print('🔧 Current API Client Timeout: ${currentApiClient.options.connectTimeout}');
-    
-    // Construct the full URL
-    final fullUrl = '${currentApiClient.options.baseUrl}Webservices/api3.php?action=staff_login';
-    print('📡 Full URL being called: $fullUrl');
-    print('📡 Expected URL for testing: https://test.startupworld.in/Webservices/api3.php?action=staff_login');
-    print('📡 Expected URL for development: https://dev.startupworld.in/Webservices/api3.php?action=staff_login');
-    
-    print('📤 Request Body (JSON): ${jsonEncode(data)}');
-    print('📤 Request Body (Formatted):');
-    data.forEach((key, value) {
-      print('   $key: $value');
-    });
-    print('📤 Request Headers: ${currentApiClient.options.headers}');
-    print('📤 Dio Base URL: ${currentApiClient.options.baseUrl}');
-    print('📤 Dio Timeout: ${currentApiClient.options.connectTimeout}');
     
     try {
       final response = await currentApiClient.post('Webservices/api3.php?action=staff_login', data: data);
-      
-      print('📥 API Response Status: ${response.statusCode}');
-      print('📥 API Response Headers: ${response.headers}');
-      print('📥 API Response Data Type: ${response.data.runtimeType}');
-      print('📥 API Response Body (Raw): ${response.data}');
-      print('📥 API Response Body (JSON): ${jsonEncode(response.data)}');
-      
       return response;
     } catch (e) {
       // Fallback to platform-specific HTTP client (only on mobile)
       if (!kIsWeb) {
-        print('⚠️ Dio failed, trying platform HTTP client for staff login...');
-        print('❌ Dio Error: $e');
         try {
           final result = await PlatformHttpClient.post('${currentApiClient.options.baseUrl}Webservices/api3.php?action=staff_login', data);
           return Response(
@@ -270,11 +163,9 @@ class ApiService {
             data: result['data'],
           );
         } catch (e2) {
-          print('❌ Platform HTTP client also failed: $e2');
           rethrow;
         }
       } else {
-        print('❌ Dio failed on web platform: $e');
         rethrow;
       }
     }
@@ -353,43 +244,20 @@ class ApiService {
     return await apiClient.post('Webservices/api3.php?action=Assign_Task', data: requestData);
   }
 
-  // Test method to verify API key configuration
-  static void testApiKey() {
-    print('🧪 Testing API Key Configuration:');
-    print('   AppConfig.apiKey: ${AppConfig.apiKey.substring(0, 10)}...');
-    print('   EnvironmentConfig.apiKey: ${EnvironmentConfig.apiKey.substring(0, 10)}...');
-    print('   EnvironmentConfig.config[apiKey]: ${EnvironmentConfig.config['apiKey'].substring(0, 10)}...');
-  }
-
   // View Previous Task List
   static Future<Response> viewPreviousTasks(Map<String, dynamic> data) async {
-    // Test API key configuration first
-    testApiKey();
-    
     // Add API key to the request data
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
     requestData['api_key'] = AppConfig.apiKey;
-    
-    // Debug logging
-    print('🔑 viewPreviousTasks - API Key: ${AppConfig.apiKey.substring(0, 10)}...');
-    print('📤 viewPreviousTasks - Request Data: $requestData');
-    print('📤 viewPreviousTasks - API Key in request: ${requestData['api_key']?.substring(0, 10)}...');
     
     return await apiClient.post('Webservices/api3.php?action=assigned_task_list', data: requestData);
   }
 
   // Get All Tasks for Staff View (all student tasks)
   static Future<Response> getAllTasksForStaff(Map<String, dynamic> data) async {
-    // Test API key configuration first
-    testApiKey();
-    
     // Use the data passed from the task service instead of overriding it
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
     requestData['api_key'] = AppConfig.apiKey;
-    
-    // Debug logging
-    print('🔑 getAllTasksForStaff - API Key: ${AppConfig.apiKey.substring(0, 10)}...');
-    print('📤 getAllTasksForStaff - Request Data: $requestData');
     
     // Use the new API endpoint for all student tasks
     return await apiClient.post('Webservices/api3.php?action=assigned_task_list_all_students', data: requestData);
@@ -397,9 +265,6 @@ class ApiService {
 
   // Get All Tasks for Staff View with custom date range
   static Future<Response> getAllTasksForStaffWithDateRange(DateTime fromDate, DateTime toDate) async {
-    // Test API key configuration first
-    testApiKey();
-    
     // Format dates for API
     final fromDateStr = '${fromDate.year}-${fromDate.month.toString().padLeft(2, '0')}-${fromDate.day.toString().padLeft(2, '0')}';
     final toDateStr = '${toDate.year}-${toDate.month.toString().padLeft(2, '0')}-${toDate.day.toString().padLeft(2, '0')}';
@@ -410,11 +275,6 @@ class ApiService {
       'to_date': toDateStr,
       'api_key': AppConfig.apiKey,
     };
-    
-    // Debug logging
-    print('🔑 getAllTasksForStaffWithDateRange - API Key: ${AppConfig.apiKey.substring(0, 10)}...');
-    print('📤 getAllTasksForStaffWithDateRange - Request Data: $requestData');
-    print('📅 Custom date range: $fromDateStr to $toDateStr');
     
     // Use the new API endpoint for all student tasks
     return await apiClient.post('Webservices/api3.php?action=assigned_task_list_all_students', data: requestData);
@@ -467,14 +327,5 @@ class ApiService {
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
     requestData['api_key'] = AppConfig.apiKey;
     return await apiClient.post('Webservices/api3.php?action=delete_user_data', data: requestData);
-  }
-
-  // Helper methods for debug logging
-  static String getStaffLoginUrl() {
-    return '${apiClient.options.baseUrl}Webservices/api3.php?action=staff_login';
-  }
-
-  static Map<String, dynamic> getStaffLoginHeaders() {
-    return apiClient.options.headers;
   }
 } 

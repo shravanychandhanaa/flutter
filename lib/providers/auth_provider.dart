@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../models/user.dart';
+import '../models/college.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -35,14 +37,11 @@ class AuthProvider with ChangeNotifier {
         
         // Get session data if available
         await getSessionData();
-        
-        print('✅ Auto-login successful: ${user.name}');
       }
 
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      print('❌ Auto-login error: $e');
       _isLoading = false;
       notifyListeners();
     }
@@ -58,14 +57,46 @@ class AuthProvider with ChangeNotifier {
     String? project,
     String? collegeId,
     String? phone,
+    // Additional student registration fields
+    String? dob,
+    String? gender,
+    String? address1,
+    String? address2,
+    String? city,
+    String? state,
+    String? pincode,
+    String? college,
+    String? countryCode,
+    String? mobile,
+    String? likeToBe,
+    String? hearAboutUs,
+    String? other,
+    String? workCategory,
+    String? workType,
+    String? batch,
+    String? degree,
+    String? department,
+    String? year,
+    String? whoAreYou,
+    String? durationOfProjects,
+    String? hobby,
+    String? dbKnowledge,
+    String? technologies,
+    String? otherSoftware,
+    String? otherSkills,
+    String? companyName,
+    String? fromDate,
+    String? toDate,
+    String? roleDescription,
+    String? regSource,
+    String? userImage,
+    String? studentType,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      print('Registering user: $name ($email) as ${userType.name}');
-      
       final result = await _authService.register(
         name: name,
         email: email,
@@ -75,9 +106,41 @@ class AuthProvider with ChangeNotifier {
         project: project,
         collegeId: collegeId,
         phone: phone,
+        // Student registration fields
+        dob: dob,
+        gender: gender,
+        address1: address1,
+        address2: address2,
+        city: city,
+        state: state,
+        pincode: pincode,
+        college: college,
+        countryCode: countryCode,
+        mobile: mobile,
+        likeToBe: likeToBe,
+        hearAboutUs: hearAboutUs,
+        other: other,
+        workCategory: workCategory,
+        workType: workType,
+        batch: batch,
+        degree: degree,
+        department: department,
+        year: year,
+        whoAreYou: whoAreYou,
+        durationOfProjects: durationOfProjects,
+        hobby: hobby,
+        dbKnowledge: dbKnowledge,
+        technologies: technologies,
+        otherSoftware: otherSoftware,
+        otherSkills: otherSkills,
+        companyName: companyName,
+        fromDate: fromDate,
+        toDate: toDate,
+        roleDescription: roleDescription,
+        regSource: regSource,
+        userImage: userImage,
+        studentType: studentType,
       );
-
-      print('Registration result: $result');
 
       if (result['success'] == true) {
         _currentUser = result['user'];
@@ -91,7 +154,6 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('AuthProvider registration error: $e');
       _errorMessage = 'Registration failed: $e';
       _isLoading = false;
       notifyListeners();
@@ -127,11 +189,8 @@ class AuthProvider with ChangeNotifier {
         if (result['sessionData'] != null) {
           _sessionData = result['sessionData'];
         }
-        
-        print('✅ Login successful: ${_currentUser?.name}');
       } else {
         _errorMessage = result['message'];
-        print('❌ Login failed: $_errorMessage');
       }
 
       _isLoading = false;
@@ -140,7 +199,6 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       _errorMessage = 'Login failed: $e';
-      print('❌ Login error: $e');
       notifyListeners();
       return false;
     }
@@ -155,9 +213,8 @@ class AuthProvider with ChangeNotifier {
       _errorMessage = null;
       _sessionData = null;
       notifyListeners();
-      print('✅ Logout successful');
     } catch (e) {
-      print('❌ Logout error: $e');
+      // Handle logout error silently
     }
   }
 
@@ -169,7 +226,6 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return sessionData;
     } catch (e) {
-      print('❌ Get session data error: $e');
       return null;
     }
   }
@@ -179,7 +235,6 @@ class AuthProvider with ChangeNotifier {
     try {
       return await _authService.isRememberMeEnabled();
     } catch (e) {
-      print('❌ Check remember me error: $e');
       return false;
     }
   }
@@ -189,7 +244,6 @@ class AuthProvider with ChangeNotifier {
     try {
       return await _authService.getAllUsers();
     } catch (e) {
-      print('AuthProvider getAllUsers error: $e');
       _errorMessage = 'Failed to get users: $e';
       notifyListeners();
       return [];
@@ -201,7 +255,6 @@ class AuthProvider with ChangeNotifier {
     try {
       return await _authService.validateCollegeId(collegeId);
     } catch (e) {
-      print('AuthProvider validateCollegeId error: $e');
       return false;
     }
   }
@@ -226,7 +279,6 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('AuthProvider sendOTP error: $e');
       _errorMessage = 'Failed to send OTP: $e';
       _isLoading = false;
       notifyListeners();
@@ -254,11 +306,21 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('AuthProvider verifyOTP error: $e');
       _errorMessage = 'Failed to verify OTP: $e';
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  // Get all colleges
+  Future<List<College>> getAllColleges() async {
+    try {
+      return await _authService.getAllColleges();
+    } catch (e) {
+      _errorMessage = 'Failed to get colleges: $e';
+      notifyListeners();
+      return [];
     }
   }
 } 

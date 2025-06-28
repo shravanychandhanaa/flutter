@@ -42,6 +42,10 @@ class _StaffDashboardState extends State<StaffDashboard> {
   String _selectedStudentWorkType = '';
   String _selectedStudentState = '';
   String _selectedStudentCity = '';
+  
+  // New filters
+  bool _teamNotAssigned = false;
+  bool _projectNotAssigned = false;
 
   // Advanced search parameters
   bool _showAdvancedSearch = false;
@@ -791,6 +795,40 @@ class _StaffDashboardState extends State<StaffDashboard> {
                           });
                           studentListProvider.setCollegeFilter(value ?? '');
                         },
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Team/Project Not Assigned Filters
+                Row(
+                  children: [
+                    Expanded(
+                      child: CheckboxListTile(
+                        title: const Text('Team Not Assigned'),
+                        value: _teamNotAssigned,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            _teamNotAssigned = value ?? false;
+                          });
+                          studentListProvider.setTeamNotAssigned(value ?? false);
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    Expanded(
+                      child: CheckboxListTile(
+                        title: const Text('Project Not Assigned'),
+                        value: _projectNotAssigned,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            _projectNotAssigned = value ?? false;
+                          });
+                          studentListProvider.setProjectNotAssigned(value ?? false);
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ],
@@ -1632,6 +1670,116 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 ),
               ),
 
+            // Task Count Display
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.task_alt,
+                        color: Colors.green[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Showing ${displayTasks.length} of ${taskProvider.tasks.length} tasks',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Show status breakdown
+                  if (displayTasks.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${displayTasks.where((t) => t.status == TaskStatus.assigned).length} Assigned',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${displayTasks.where((t) => t.status == TaskStatus.inProgress).length} In Progress',
+                              style: TextStyle(
+                                color: Colors.orange[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${displayTasks.where((t) => t.status == TaskStatus.completed).length} Completed',
+                              style: TextStyle(
+                                color: Colors.green[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (_selectedFilter != 'All' || _teamFilter.isNotEmpty || _projectFilter.isNotEmpty || _startDate != null || _taskSearchController.text.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Filtered',
+                                style: TextStyle(
+                                  color: Colors.orange[700],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
             // Tasks List
             Expanded(
               child: taskProvider.isLoading
@@ -1810,6 +1958,86 @@ class _StaffDashboardState extends State<StaffDashboard> {
                     icon: const Icon(Icons.filter_list),
                     tooltip: 'Filter Students',
                   ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      print('🧪 Test search functionality');
+                      final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
+                      print('🧪 Current students: ${studentListProvider.students.length}');
+                      print('🧪 Filtered students: ${studentListProvider.filteredStudents.length}');
+                      print('🧪 Search keyword: "${studentListProvider.searchKeyword}"');
+                      
+                      // Test search with a simple keyword
+                      studentListProvider.setSearchKeyword('test');
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Test search completed - check console for details'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.bug_report),
+                    tooltip: 'Test Search',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.orange[200],
+                      foregroundColor: Colors.orange[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Student Count Display
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.people,
+                    color: Colors.blue[700],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Showing ${studentListProvider.filteredStudents.length} of ${studentListProvider.students.length} students',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue[700],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (studentListProvider.searchKeyword.isNotEmpty ||
+                      studentListProvider.selectedTeam.isNotEmpty ||
+                      studentListProvider.selectedProject.isNotEmpty ||
+                      studentListProvider.selectedStatus.isNotEmpty ||
+                      studentListProvider.selectedCollege.isNotEmpty ||
+                      studentListProvider.selectedWorkCategory.isNotEmpty ||
+                      studentListProvider.selectedWorkType.isNotEmpty ||
+                      studentListProvider.selectedState.isNotEmpty ||
+                      studentListProvider.selectedCity.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Filtered',
+                        style: TextStyle(
+                          color: Colors.orange[700],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

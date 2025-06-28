@@ -213,26 +213,8 @@ class AppDrawer extends StatelessWidget {
                       leading: const Icon(Icons.description),
                       title: const Text('Terms & Conditions'),
                       onTap: () {
-                        try {
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const TermsConditionsScreen(),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          print('Error navigating to Terms & Conditions: $e');
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error opening Terms & Conditions: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/terms-conditions');
                       },
                     ),
                     
@@ -240,32 +222,11 @@ class AppDrawer extends StatelessWidget {
                     
                     // Delete User Data
                     ListTile(
-                      leading: const Icon(Icons.delete_forever, color: Colors.red),
-                      title: const Text(
-                        'Delete User Data',
-                        style: TextStyle(color: Colors.red),
-                      ),
+                      leading: const Icon(Icons.delete_forever),
+                      title: const Text('Delete User Data'),
                       onTap: () {
-                        try {
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const DeleteUserDataScreen(),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          print('Error navigating to Delete User Data: $e');
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error opening Delete User Data: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/delete-user-data');
                       },
                     ),
                     

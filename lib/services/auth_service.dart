@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
 import '../models/user.dart';
+import '../models/student_registration.dart';
+import '../models/college.dart';
 import '../config/app_config.dart';
 import 'api_service.dart';
 import 'api_client.dart';
@@ -23,34 +25,111 @@ class AuthService {
     String? project,
     String? collegeId,
     String? phone,
+    // Additional student registration fields
+    String? dob,
+    String? gender,
+    String? address1,
+    String? address2,
+    String? city,
+    String? state,
+    String? pincode,
+    String? college,
+    String? countryCode,
+    String? mobile,
+    String? likeToBe,
+    String? hearAboutUs,
+    String? other,
+    String? workCategory,
+    String? workType,
+    String? batch,
+    String? degree,
+    String? department,
+    String? year,
+    String? whoAreYou,
+    String? durationOfProjects,
+    String? hobby,
+    String? dbKnowledge,
+    String? technologies,
+    String? otherSoftware,
+    String? otherSkills,
+    String? companyName,
+    String? fromDate,
+    String? toDate,
+    String? roleDescription,
+    String? regSource,
+    String? userImage,
+    String? studentType,
   }) async {
     try {
-      Map<String, dynamic> requestData = {
-        'name': name,
-        'email': email,
-        'password': password,
-        'user_type': userType.toString().split('.').last,
-        'team': team ?? '',
-        'project': project ?? '',
-        'college_id': collegeId ?? '',
-        'phone': phone ?? '',
-      };
-
       Response response;
       
       if (userType == UserType.student) {
-        response = await ApiService.registerStudent(requestData);
+        // Create StudentRegistration object for student registration
+        final studentRegistration = StudentRegistration(
+          fullName: name,
+          email: email,
+          pwd: password,
+          confirmPwd: password, // Assuming confirmation is handled in UI
+          collegeId: collegeId ?? '',
+          college: college ?? '',
+          mobile: mobile ?? phone ?? '',
+          countryCode: countryCode ?? '+91',
+          city: city ?? '',
+          gender: gender ?? '',
+          likeToBe: likeToBe ?? '',
+          projectName: project ?? '',
+          address1: address1,
+          address2: address2,
+          state: state,
+          pincode: pincode,
+          dob: dob,
+          hearAboutUs: hearAboutUs,
+          other: other,
+          workCategory: workCategory,
+          workType: workType,
+          batch: batch,
+          degree: degree,
+          department: department,
+          year: year,
+          whoAreYou: whoAreYou,
+          durationOfProjects: durationOfProjects,
+          hobby: hobby,
+          dbKnowledge: dbKnowledge,
+          technologies: technologies,
+          otherSoftware: otherSoftware,
+          otherSkills: otherSkills,
+          companyName: companyName,
+          fromDate: fromDate,
+          toDate: toDate,
+          roleDescription: roleDescription,
+          regSource: regSource,
+          userImage: userImage,
+          studentType: studentType,
+        );
+
+        response = await ApiService.registerStudent(studentRegistration.toJson());
       } else {
+        // Staff registration (existing logic)
+        Map<String, dynamic> requestData = {
+          'name': name,
+          'email': email,
+          'password': password,
+          'user_type': userType.toString().split('.').last,
+          'team': team ?? '',
+          'project': project ?? '',
+          'college_id': collegeId ?? '',
+          'phone': phone ?? '',
+        };
         response = await ApiService.registerTeacher(requestData);
       }
 
       if (response.statusCode == 200) {
         final responseData = response.data;
         
-        if (responseData['status'] == 'success') {
+        if (responseData['responseStatus'] == 200) {
           // Create user object for local storage
           final newUser = User(
-            id: responseData['user_id']?.toString() ?? _uuid.v4(),
+            id: responseData['User_Id']?.toString() ?? _uuid.v4(),
             name: name,
             email: email,
             userType: userType,
@@ -64,13 +143,14 @@ class AuthService {
 
           return {
             'success': true,
-            'message': responseData['message'] ?? 'Registration successful',
+            'message': responseData['responseMessage'] ?? 'Registration successful',
             'user': newUser,
+            'emailSmsStatus': responseData['Email_SMS_Status'],
           };
         } else {
           return {
             'success': false,
-            'message': responseData['message'] ?? 'Registration failed',
+            'message': responseData['responseMessage'] ?? 'Registration failed',
           };
         }
       } else {
@@ -80,7 +160,6 @@ class AuthService {
         };
       }
     } catch (e) {
-      print('Registration error: $e');
       return {
         'success': false,
         'message': 'Registration failed: $e',
@@ -100,10 +179,6 @@ class AuthService {
         'api_key': AppConfig.apiKey,
       };
 
-      // Debug logging for API key
-      print('🔑 Login - API Key being sent: ${AppConfig.apiKey.substring(0, 10)}...');
-      print('🔑 Login - Full API Key: ${AppConfig.apiKey}');
-
       // For students, use pwd field and usertype "1"
       // For staff, use password field and usertype "3"
       if (userType == UserType.student) {
@@ -116,51 +191,13 @@ class AuthService {
         requestData['usertype'] = '3'; // Staff usertype as specified
       }
 
-      print('🔐 Login request data: $requestData');
-      print('👤 User type: $userType');
-
       Response response;
       
       if (userType == UserType.student) {
         response = await ApiService.studentLogin(requestData);
       } else {
-        // Test print to verify this section is reached
-        print('🔍 ENTERING STAFF LOGIN SECTION');
-        
-        // Enhanced debug logging for staff login in production
-        print('🚀 STAFF LOGIN DEBUG - PRODUCTION');
-        print('📡 Full API URL: ${ApiService.getStaffLoginUrl()}');
-        print('📤 Request Body (JSON): ${jsonEncode(requestData)}');
-        print('📤 Request Body (Formatted):');
-        requestData.forEach((key, value) {
-          print('   $key: $value');
-        });
-        print('📤 Request Headers: ${ApiService.getStaffLoginHeaders()}');
-        
         response = await ApiService.staffLogin(requestData);
-        
-        print('📥 Response Status Code: ${response.statusCode}');
-        print('📥 Response Headers: ${response.headers}');
-        print('📥 Response Data Type: ${response.data.runtimeType}');
-        print('📥 Response Body (Raw): ${response.data}');
-        print('📥 Response Body (JSON): ${jsonEncode(response.data)}');
-        
-        // Log response details for debugging
-        if (response.data is Map) {
-          print('📥 Response Keys: ${response.data.keys.toList()}');
-          print('📥 Response Status Field: ${response.data['responseStatus']}');
-          print('📥 Response Message: ${response.data['responseMessage']}');
-          if (response.data['Staff_Details'] != null) {
-            print('📥 Staff Details Count: ${response.data['Staff_Details'].length}');
-            if (response.data['Staff_Details'].isNotEmpty) {
-              print('📥 First Staff Member: ${jsonEncode(response.data['Staff_Details'][0])}');
-            }
-          }
-        }
       }
-
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response data: ${response.data}');
 
       // Handle different response types
       if (response.statusCode == 200) {
@@ -202,8 +239,6 @@ class AuthService {
           };
         }
         
-        print('🔍 Parsed data: $parsedData');
-        
         // Handle different response formats for student vs staff
         bool isSuccess = false;
         Map<String, dynamic> userData = {};
@@ -223,7 +258,6 @@ class AuthService {
             'team_leader_status': parsedData['Team_Leader_Status'] ?? 'false',
             'user_details': parsedData['User_Details'] ?? [],
           };
-          print('🎓 Student login - Success: $isSuccess, User data: $userData');
         } else {
           // Staff response format
           isSuccess = parsedData['responseStatus'] == 200;
@@ -237,7 +271,6 @@ class AuthService {
           sessionData = {
             'staff_details': parsedData['Staff_Details'] ?? [],
           };
-          print('👨‍💼 Staff login - Success: $isSuccess, User data: $userData');
         }
         
         if (isSuccess && userData.isNotEmpty) {
@@ -250,8 +283,6 @@ class AuthService {
             team: userData['team'] ?? '',
             project: userData['project_name'] ?? userData['project'] ?? '', // Handle project_name for students
           );
-
-          print('✅ Created user object: ${user.toJson()}');
 
           // Store current user and session data locally
           final prefs = await SharedPreferences.getInstance();
@@ -268,21 +299,18 @@ class AuthService {
             'sessionData': sessionData,
           };
         } else {
-          print('❌ Login failed - Success: $isSuccess, User data empty: ${userData.isEmpty}');
           return {
             'success': false,
             'message': parsedData['responseMessage'] ?? parsedData['message'] ?? 'Invalid credentials',
           };
         }
       } else {
-        print('❌ HTTP error: ${response.statusCode}');
         return {
           'success': false,
           'message': 'Network error: ${response.statusCode}',
         };
       }
     } catch (e) {
-      print('❌ Login error: $e');
       return {
         'success': false,
         'message': 'Login failed: $e',
@@ -490,6 +518,48 @@ class AuthService {
         'success': false,
         'message': 'Failed to delete data: $e',
       };
+    }
+  }
+
+  // Get All Colleges
+  Future<List<College>> getAllColleges() async {
+    try {
+      final response = await ApiService.getAllColleges();
+      
+      print('🏫 College API Response Status: ${response.statusCode}');
+      print('🏫 College API Response Data: ${response.data}');
+      
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        
+        // Handle different possible response formats
+        List<dynamic> collegesList = [];
+        
+        if (responseData['responseStatus'] == 200 || responseData['status'] == 'success') {
+          // Try different possible keys for colleges data
+          collegesList = responseData['colleges'] ?? 
+                        responseData['college_list'] ?? 
+                        responseData['data'] ?? 
+                        responseData['result'] ?? 
+                        [];
+          
+          print('🏫 Found ${collegesList.length} colleges in response');
+          print('🏫 Colleges data: $collegesList');
+        } else {
+          print('❌ Get colleges failed: ${responseData['responseMessage'] ?? responseData['message']}');
+          return [];
+        }
+        
+        final colleges = collegesList.map<College>((collegeData) => College.fromJson(collegeData)).toList();
+        print('🏫 Parsed ${colleges.length} colleges successfully');
+        return colleges;
+      } else {
+        print('❌ Get colleges HTTP error: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Get colleges error: $e');
+      return [];
     }
   }
 } 

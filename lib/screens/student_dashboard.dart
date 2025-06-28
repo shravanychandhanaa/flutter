@@ -325,8 +325,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final success = await taskProvider.createTask(
         title: taskData['title']!,
         description: taskData['description']!,
-        assignedTo: authProvider.currentUser!.id,
-        assignedBy: authProvider.currentUser!.id,
+        studentId: authProvider.currentUser!.id,
         team: taskData['team']!,
         project: taskData['project']!,
         notes: taskData['notes']!.isEmpty ? null : taskData['notes'],
@@ -760,199 +759,298 @@ class _StudentDashboardState extends State<StudentDashboard> {
       builder: (context, taskProvider, child) {
         final tasks = taskProvider.tasks;
 
-        return taskProvider.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : tasks.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.task_alt,
-                          size: 64,
-                          color: Colors.grey[400],
+        return Column(
+          children: [
+            // Task Count Display
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.task_alt,
+                        color: Colors.green[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'You have ${tasks.length} task${tasks.length == 1 ? '' : 's'} assigned',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green[700],
+                          fontSize: 14,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No tasks assigned yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                  // Show status breakdown
+                  if (tasks.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${tasks.where((t) => t.status == TaskStatus.assigned).length} Pending',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tasks will appear here when assigned by staff',
-                          style: TextStyle(
-                            color: Colors.grey[500],
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${tasks.where((t) => t.status == TaskStatus.inProgress).length} In Progress',
+                              style: TextStyle(
+                                color: Colors.orange[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${tasks.where((t) => t.status == TaskStatus.completed).length} Completed',
+                              style: TextStyle(
+                                color: Colors.green[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: tasks.length,
-                    itemBuilder: (context, index) {
-                      final task = tasks[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
+                  ],
+                ],
+              ),
+            ),
+
+            // Tasks List
+            Expanded(
+              child: taskProvider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : tasks.isEmpty
+                      ? Center(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      task.title,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(task.status),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      task.status.name.toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              Icon(
+                                Icons.task_alt,
+                                size: 64,
+                                color: Colors.grey[400],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 16),
                               Text(
-                                task.description,
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Icon(Icons.group, size: 16, color: Colors.grey[600]),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    task.team,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(Icons.work, size: 16, color: Colors.grey[600]),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    task.project,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Assigned: ${DateFormat('MMM dd, yyyy').format(task.assignedDate)}',
+                                'No tasks assigned yet',
                                 style: TextStyle(
+                                  fontSize: 18,
                                   color: Colors.grey[600],
-                                  fontSize: 12,
                                 ),
                               ),
-                              if (task.dueDate != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Due: ${DateFormat('MMM dd, yyyy').format(task.dueDate!)}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 12,
-                                  ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tasks will appear here when assigned by staff',
+                                style: TextStyle(
+                                  color: Colors.grey[500],
                                 ),
-                              ],
-                              // Show timer for in-progress tasks
-                              if (task.status == TaskStatus.inProgress) ...[
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(Icons.timer, size: 16, color: Colors.blue[600]),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Time: ${_getFormattedTimeSpent(task)}',
-                                      style: TextStyle(
-                                        color: Colors.blue[600],
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  if (task.status == TaskStatus.assigned)
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: () => _confirmStatusUpdate(
-                                          task, 
-                                          TaskStatus.inProgress,
-                                          'Start Task',
-                                          'Are you sure you want to start this task? This will begin time tracking.',
-                                        ),
-                                        icon: const Icon(Icons.play_arrow, size: 16),
-                                        label: const Text('Start Task'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  if (task.status == TaskStatus.inProgress) ...[
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: () => _confirmStatusUpdate(
-                                          task, 
-                                          TaskStatus.completed,
-                                          'Complete Task',
-                                          'Are you sure you want to mark this task as completed? This will stop time tracking.',
-                                        ),
-                                        icon: const Icon(Icons.check, size: 16),
-                                        label: const Text('Complete'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  if (task.status != TaskStatus.completed)
-                                    TextButton.icon(
-                                      onPressed: () => _updateTaskNotes(task),
-                                      icon: const Icon(Icons.note_add, size: 16),
-                                      label: const Text('Add Notes'),
-                                    ),
-                                ],
                               ),
                             ],
                           ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: tasks.length,
+                          itemBuilder: (context, index) {
+                            final task = tasks[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            task.title,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _getStatusColor(task.status),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            task.status.name.toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      task.description,
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.group, size: 16, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          task.team,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Icon(Icons.work, size: 16, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          task.project,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Assigned: ${DateFormat('MMM dd, yyyy').format(task.assignedDate)}',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (task.dueDate != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Due: ${DateFormat('MMM dd, yyyy').format(task.dueDate!)}',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                    // Show timer for in-progress tasks
+                                    if (task.status == TaskStatus.inProgress) ...[
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.timer, size: 16, color: Colors.blue[600]),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Time: ${_getFormattedTimeSpent(task)}',
+                                            style: TextStyle(
+                                              color: Colors.blue[600],
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        if (task.status == TaskStatus.assigned)
+                                          Expanded(
+                                            child: ElevatedButton.icon(
+                                              onPressed: () => _confirmStatusUpdate(
+                                                task, 
+                                                TaskStatus.inProgress,
+                                                'Start Task',
+                                                'Are you sure you want to start this task? This will begin time tracking.',
+                                              ),
+                                              icon: const Icon(Icons.play_arrow, size: 16),
+                                              label: const Text('Start Task'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        if (task.status == TaskStatus.inProgress) ...[
+                                          Expanded(
+                                            child: ElevatedButton.icon(
+                                              onPressed: () => _confirmStatusUpdate(
+                                                task, 
+                                                TaskStatus.completed,
+                                                'Complete Task',
+                                                'Are you sure you want to mark this task as completed? This will stop time tracking.',
+                                              ),
+                                              icon: const Icon(Icons.check, size: 16),
+                                              label: const Text('Complete'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.green,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        if (task.status != TaskStatus.completed)
+                                          TextButton.icon(
+                                            onPressed: () => _updateTaskNotes(task),
+                                            icon: const Icon(Icons.note_add, size: 16),
+                                            label: const Text('Add Notes'),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  );
+            ),
+          ],
+        );
       },
     );
   }
