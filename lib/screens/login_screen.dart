@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            colors: [Color(0xFF667eea), Colors.white],
           ),
         ),
         child: SafeArea(
@@ -135,173 +135,164 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
-                  child: Card(
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Image.asset(
-                              'assets/icon/app_icon.png',
-                              width: 80,
-                              height: 80,
-                            ),
-                            const SizedBox(height: 24),
-                            const Text(
-                              'StartupWorld',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF2d3748),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Sign in to your account',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF718096),
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            // User Type Selection
-                            DropdownButtonFormField<UserType>(
-                              value: _selectedUserType,
-                              decoration: const InputDecoration(
-                                labelText: 'User Type',
-                                prefixIcon: Icon(Icons.person),
-                                border: OutlineInputBorder(),
-                              ),
-                              items: UserType.values.map((UserType userType) {
-                                return DropdownMenuItem<UserType>(
-                                  value: userType,
-                                  child: Text(userType.name.toUpperCase()),
-                                );
-                              }).toList(),
-                              onChanged: (UserType? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedUserType = newValue;
-                                    // Clear the input field when switching user types
-                                    _emailController.clear();
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            // Dynamic input field based on user type
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: _selectedUserType == UserType.student 
-                                  ? TextInputType.emailAddress 
-                                  : TextInputType.text,
-                              decoration: InputDecoration(
-                                labelText: _selectedUserType == UserType.student 
-                                    ? 'Email Address' 
-                                    : 'Username or Email',
-                                hintText: _selectedUserType == UserType.student 
-                                    ? 'Enter your email address' 
-                                    : 'Enter username or email',
-                                prefixIcon: Icon(_selectedUserType == UserType.student 
-                                    ? Icons.email 
-                                    : Icons.person),
-                                border: const OutlineInputBorder(),
-                              ),
-                              validator: _validateInput,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: Icon(Icons.lock),
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter your password';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            // Remember Me checkbox
-                            Row(
-                              children: [
-                                Checkbox(
-                                  value: _rememberMe,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _rememberMe = value ?? false;
-                                    });
-                                  },
-                                  activeColor: const Color(0xFF667eea),
-                                ),
-                                const Text(
-                                  'Remember me',
-                                  style: TextStyle(
-                                    color: Color(0xFF2d3748),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _login,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF667eea),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: _isLoading
-                                    ? const CircularProgressIndicator(color: Colors.white)
-                                    : const Text(
-                                        'Sign In',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            TextButton(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/icon/app_icon.png',
+                          width: 80,
+                          height: 80,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'StartupWorld',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2d3748),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Sign in to your account',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF718096),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // User Type Selection
+                        DropdownButtonFormField<UserType>(
+                          value: _selectedUserType,
+                          decoration: const InputDecoration(
+                            labelText: 'User Type',
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
+                          ),
+                          items: UserType.values.map((UserType userType) {
+                            return DropdownMenuItem<UserType>(
+                              value: userType,
+                              child: Text(userType.name.toUpperCase()),
+                            );
+                          }).toList(),
+                          onChanged: (UserType? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                _selectedUserType = newValue;
+                                // Clear the input field when switching user types
+                                _emailController.clear();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // Dynamic input field based on user type
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: _selectedUserType == UserType.student 
+                              ? TextInputType.emailAddress 
+                              : TextInputType.text,
+                          decoration: InputDecoration(
+                            labelText: _selectedUserType == UserType.student 
+                                ? 'Email Address' 
+                                : 'Username or Email',
+                            hintText: _selectedUserType == UserType.student 
+                                ? 'Enter your email address' 
+                                : 'Enter username or email',
+                            prefixIcon: Icon(_selectedUserType == UserType.student 
+                                ? Icons.email 
+                                : Icons.person),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: _validateInput,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
                               onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => const RegisterScreen(),
-                                  ),
-                                );
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
                               },
-                              child: const Text(
-                                'Don\'t have an account? Sign up',
-                                style: TextStyle(color: Color(0xFF667eea)),
+                              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // Remember Me checkbox
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                              activeColor: const Color(0xFF667eea),
+                            ),
+                            const Text(
+                              'Remember me',
+                              style: TextStyle(
+                                color: Color(0xFF2d3748),
+                                fontSize: 14,
                               ),
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF667eea),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : const Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Don\'t have an account? Sign up',
+                            style: TextStyle(color: Color(0xFF667eea)),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
