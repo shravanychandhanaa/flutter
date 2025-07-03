@@ -58,6 +58,22 @@ class _StudentDashboardState extends State<StudentDashboard> {
       await taskProvider.loadTasksForUser(authProvider.currentUser!.id);
       await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
       
+      // Redirect to attendance screen if not marked
+      if (attendanceProvider.todayAttendance == null || !attendanceProvider.todayAttendance!.isPresent) {
+        if (ModalRoute.of(context)?.settings.name != '/student_attendance') {
+          // Prevent duplicate navigation
+          Future.microtask(() {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const StudentAttendanceScreen(),
+                settings: const RouteSettings(name: '/student_attendance'),
+              ),
+            );
+          });
+        }
+        return;
+      }
+      
       // Initialize task start times for in-progress tasks
       final tasks = taskProvider.tasks;
       for (final task in tasks) {
@@ -1117,59 +1133,56 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-        
-        if (user == null) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final todayAttendance = attendanceProvider.todayAttendance;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUser;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(_getAppBarTitle()),
-            backgroundColor: _getThemeColor(),
-            foregroundColor: Colors.white,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: _logout,
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_getAppBarTitle()),
+        backgroundColor: _getThemeColor(),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
           ),
-          drawer: AppDrawer(user: user, themeColor: _getThemeColor()),
-          body: IndexedStack(
-            index: _currentIndex,
-            children: [
-              _buildDashboardTab(),
-              _buildTasksTab(),
-              _buildAttendanceTab(),
-              _buildProfileTab(),
-            ],
-          ),
-          bottomNavigationBar: StudentBottomNavigation(
-            currentIndex: _currentIndex,
-            onTap: _onBottomNavTap,
-            themeColor: _getThemeColor(),
-          ),
-          floatingActionButton: _currentIndex == 1 // Tasks tab
-              ? FloatingActionButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const CreateTaskScreen(),
-                      ),
-                    );
-                  },
-                  backgroundColor: _getThemeColor(),
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
-                )
-              : null,
-        );
-      },
+        ],
+      ),
+      drawer: user != null ? AppDrawer(user: user, themeColor: _getThemeColor()) : null,
+      body: (attendanceProvider.isLoading)
+          ? const Center(child: CircularProgressIndicator())
+          : (todayAttendance == null || !todayAttendance.isPresent)
+              ? const StudentAttendanceScreen()
+              : IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    _buildDashboardTab(),
+                    _buildTasksTab(),
+                    _buildAttendanceTab(),
+                    _buildProfileTab(),
+                  ],
+                ),
+      bottomNavigationBar: StudentBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        themeColor: _getThemeColor(),
+      ),
+      floatingActionButton: _currentIndex == 1 // Tasks tab
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CreateTaskScreen(),
+                  ),
+                );
+              },
+              backgroundColor: _getThemeColor(),
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 

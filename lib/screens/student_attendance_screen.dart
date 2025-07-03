@@ -101,11 +101,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mark Attendance'),
-        backgroundColor: const Color(0xFF667eea),
-        foregroundColor: Colors.white,
-      ),
       body: Consumer2<AttendanceProvider, AuthProvider>(
         builder: (context, attendanceProvider, authProvider, child) {
           final todayAttendance = attendanceProvider.todayAttendance;

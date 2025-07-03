@@ -16,6 +16,7 @@ import 'create_task_screen.dart';
 import 'attendance_report_screen.dart';
 import 'attendance_approval_screen.dart';
 import '../services/task_service.dart';
+import 'student_attendance_screen.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -81,11 +82,28 @@ class _StaffDashboardState extends State<StaffDashboard> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
     
     if (authProvider.currentUser != null) {
-      print('👤 Current user: ${authProvider.currentUser!.name} (${authProvider.currentUser!.userType})');
+      print('👤 Current user: [33m${authProvider.currentUser!.name} (${authProvider.currentUser!.userType})[0m');
       // Set current user in task provider for correct task reloading
       taskProvider.setCurrentUser(authProvider.currentUser!.id, authProvider.currentUser!.userType);
+      // Load today's attendance for staff
+      await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
+      // Redirect to attendance screen if not marked and user is staff
+      if (authProvider.currentUser!.userType == UserType.staff && (attendanceProvider.todayAttendance == null || !attendanceProvider.todayAttendance!.isPresent)) {
+        if (ModalRoute.of(context)?.settings.name != '/student_attendance') {
+          Future.microtask(() {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const StudentAttendanceScreen(),
+                settings: const RouteSettings(name: '/student_attendance'),
+              ),
+            );
+          });
+        }
+        return;
+      }
     } else {
       print('⚠️ No current user found');
     }
@@ -2425,104 +2443,105 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-        
-        if (user == null) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(_getAppBarTitle()),
-            backgroundColor: _getThemeColor(),
-            foregroundColor: Colors.white,
-            actions: [
-              if (_currentIndex == 1) // Tasks tab
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final todayAttendance = attendanceProvider.todayAttendance;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_getAppBarTitle()),
+        backgroundColor: _getThemeColor(),
+        foregroundColor: Colors.white,
+        actions: [
+          if (_currentIndex == 1) // Tasks tab
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  onPressed: _showAdvancedSearchDialog,
+                  tooltip: 'Advanced Search',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: _showTaskFilterDialog,
+                  tooltip: 'Quick Filters',
+                ),
+              ],
+            ),
+          if (_currentIndex == 2) // Students tab
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: _showStudentFilterDialog,
+                  tooltip: 'Filter Students',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
+                    studentListProvider.loadStudentList();
+                  },
+                  tooltip: 'Refresh',
+                ),
+              ],
+            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
+      ),
+      drawer: user != null ? AppDrawer(user: user, themeColor: _getThemeColor()) : null,
+      body: (attendanceProvider.isLoading)
+          ? const Center(child: CircularProgressIndicator())
+          : (todayAttendance == null || !todayAttendance.isPresent)
+              ? const StudentAttendanceScreen()
+              : IndexedStack(
+                  index: _currentIndex,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.tune),
-                      onPressed: _showAdvancedSearchDialog,
-                      tooltip: 'Advanced Search',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.filter_list),
-                      onPressed: _showTaskFilterDialog,
-                      tooltip: 'Quick Filters',
-                    ),
+                    _buildDashboardTab(),
+                    _buildTasksTab(),
+                    _buildStudentsTab(),
+                    _buildReportsTab(),
                   ],
                 ),
-              if (_currentIndex == 2) // Students tab
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.filter_list),
-                      onPressed: _showStudentFilterDialog,
-                      tooltip: 'Filter Students',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () {
-                        final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
-                        studentListProvider.loadStudentList();
-                      },
-                      tooltip: 'Refresh',
-                    ),
-                  ],
-                ),
-              IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: _logout,
-                tooltip: 'Logout',
-              ),
-            ],
-          ),
-          drawer: AppDrawer(user: user, themeColor: _getThemeColor()),
-          body: IndexedStack(
-            index: _currentIndex,
-            children: [
-              _buildDashboardTab(),
-              _buildTasksTab(),
-              _buildStudentsTab(),
-              _buildReportsTab(),
-            ],
-          ),
-          bottomNavigationBar: StaffBottomNavigation(
-            currentIndex: _currentIndex,
-            onTap: _onBottomNavTap,
-            themeColor: _getThemeColor(),
-          ),
-          floatingActionButton: _currentIndex == 1 // Tasks tab
+      bottomNavigationBar: StaffBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        themeColor: _getThemeColor(),
+      ),
+      floatingActionButton: _currentIndex == 1 // Tasks tab
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CreateTaskScreen(),
+                  ),
+                );
+              },
+              backgroundColor: _getThemeColor(),
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            )
+          : _currentIndex == 3 // Attendance tab
               ? FloatingActionButton(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const CreateTaskScreen(),
-                      ),
-                    );
+                    _showMarkAttendanceDialog();
                   },
                   backgroundColor: _getThemeColor(),
                   foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
+                  child: const Icon(Icons.person_add),
                 )
-              : _currentIndex == 3 // Attendance tab
-                  ? FloatingActionButton(
-                      onPressed: () {
-                        _showMarkAttendanceDialog();
-                      },
-                      backgroundColor: _getThemeColor(),
-                      foregroundColor: Colors.white,
-                      child: const Icon(Icons.person_add),
-                    )
-                  : null,
-        );
-      },
+              : null,
     );
   }
 
