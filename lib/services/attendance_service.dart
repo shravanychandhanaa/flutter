@@ -5,13 +5,16 @@ import 'package:dio/dio.dart';
 import '../models/attendance.dart';
 import '../models/user.dart';
 import 'api_service.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AttendanceService {
   static const String _attendanceKey = 'attendance';
+  static const String _pendingApprovalsKey = 'pending_approvals';
   final Uuid _uuid = const Uuid();
 
   // Check in a user
-  Future<Map<String, dynamic>> checkIn(String userId, String userName) async {
+  Future<Map<String, dynamic>> checkIn(String userId, String userName, String userEmail, UserType userType) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
@@ -37,13 +40,19 @@ class AttendanceService {
         id: _uuid.v4(),
         userId: userId,
         userName: userName,
+        userEmail: userEmail,
         date: todayDate,
         checkInTime: today,
         isPresent: true,
+        status: AttendanceStatus.pending,
+        userType: userType,
       );
 
       attendanceJson.add(jsonEncode(newAttendance.toJson()));
       await prefs.setStringList(_attendanceKey, attendanceJson);
+      
+      // Add to pending approvals
+      await _addToPendingApprovals(newAttendance);
       
       // Log attendance to API for tracking
       try {
@@ -60,7 +69,7 @@ class AttendanceService {
       
       return {
         'success': true,
-        'message': 'Check-in successful',
+        'message': 'Check-in successful. Awaiting approval.',
         'attendance': newAttendance,
       };
     } catch (e) {
@@ -258,6 +267,12 @@ class AttendanceService {
       
       // Get unique users
       final uniqueUsers = attendance.map((a) => a.userId).toSet().length;
+      // Active students by attendance marked
+      final activeStudentIds = attendance
+        .where((a) => a.isPresent && a.userType == UserType.student)
+        .map((a) => a.userId)
+        .toSet();
+      final activeStudentsByAttendanceMarked = activeStudentIds.length;
       
       return {
         'totalRecords': totalRecords,
@@ -267,6 +282,7 @@ class AttendanceService {
         'totalHours': totalHours,
         'uniqueUsers': uniqueUsers,
         'averageHoursPerRecord': totalRecords > 0 ? totalHours.inMinutes / totalRecords : 0,
+        'activeStudentsByAttendanceMarked': activeStudentsByAttendanceMarked,
       };
     } catch (e) {
       print('Get overall attendance stats error: $e');
@@ -278,12 +294,13 @@ class AttendanceService {
         'totalHours': Duration.zero,
         'uniqueUsers': 0,
         'averageHoursPerRecord': 0,
+        'activeStudentsByAttendanceMarked': 0,
       };
     }
   }
 
   // Mark attendance manually (for staff)
-  Future<Map<String, dynamic>> markAttendance(String userId, String userName, DateTime date, bool isPresent, {String? notes}) async {
+  Future<Map<String, dynamic>> markAttendance(String userId, String userName, String userEmail, DateTime date, bool isPresent, UserType userType, {String? notes}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
@@ -300,10 +317,16 @@ class AttendanceService {
           final updatedAttendance = attendance.copyWith(
             isPresent: isPresent,
             notes: notes,
+            status: isPresent ? AttendanceStatus.pending : AttendanceStatus.approved,
           );
           
           attendanceJson[i] = jsonEncode(updatedAttendance.toJson());
           await prefs.setStringList(_attendanceKey, attendanceJson);
+          
+          // Add to pending approvals if marked as present
+          if (isPresent) {
+            await _addToPendingApprovals(updatedAttendance);
+          }
           
           // Log to API
           try {
@@ -322,7 +345,7 @@ class AttendanceService {
           
           return {
             'success': true,
-            'message': 'Attendance updated successfully',
+            'message': isPresent ? 'Attendance marked as present. Awaiting approval.' : 'Attendance marked as absent.',
             'attendance': updatedAttendance,
           };
         }
@@ -333,13 +356,21 @@ class AttendanceService {
         id: _uuid.v4(),
         userId: userId,
         userName: userName,
+        userEmail: userEmail,
         date: targetDate,
         isPresent: isPresent,
         notes: notes,
+        status: isPresent ? AttendanceStatus.pending : AttendanceStatus.approved,
+        userType: userType,
       );
 
       attendanceJson.add(jsonEncode(newAttendance.toJson()));
       await prefs.setStringList(_attendanceKey, attendanceJson);
+      
+      // Add to pending approvals if marked as present
+      if (isPresent) {
+        await _addToPendingApprovals(newAttendance);
+      }
       
       // Log to API
       try {
@@ -358,7 +389,7 @@ class AttendanceService {
       
       return {
         'success': true,
-        'message': 'Attendance marked successfully',
+        'message': isPresent ? 'Attendance marked as present. Awaiting approval.' : 'Attendance marked as absent.',
         'attendance': newAttendance,
       };
     } catch (e) {
@@ -401,6 +432,346 @@ class AttendanceService {
         'success': false,
         'message': 'Failed to export attendance data: $e',
       };
+    }
+  }
+
+  // Mark attendance as present (requires approval)
+  Future<Map<String, dynamic>> markAttendancePresent(String userId, String userName, String userEmail, UserType userType, {String? notes}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
+      
+      final today = DateTime.now();
+      final todayDate = DateTime(today.year, today.month, today.day);
+      
+      // Check if attendance already exists for today
+      for (int i = 0; i < attendanceJson.length; i++) {
+        final attendance = Attendance.fromJson(jsonDecode(attendanceJson[i]));
+        if (attendance.userId == userId && 
+            attendance.date.isAtSameMomentAs(todayDate)) {
+          
+          // Update existing record
+          final updatedAttendance = attendance.copyWith(
+            isPresent: true,
+            notes: notes,
+            status: AttendanceStatus.pending,
+          );
+          
+          attendanceJson[i] = jsonEncode(updatedAttendance.toJson());
+          await prefs.setStringList(_attendanceKey, attendanceJson);
+          
+          // Add to pending approvals
+          await _addToPendingApprovals(updatedAttendance);
+          
+          return {
+            'success': true,
+            'message': 'Attendance marked as present. Awaiting approval.',
+            'attendance': updatedAttendance,
+          };
+        }
+      }
+      
+      // Create new attendance record
+      final newAttendance = Attendance(
+        id: _uuid.v4(),
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
+        date: todayDate,
+        isPresent: true,
+        notes: notes,
+        status: AttendanceStatus.pending,
+        userType: userType,
+      );
+
+      attendanceJson.add(jsonEncode(newAttendance.toJson()));
+      await prefs.setStringList(_attendanceKey, attendanceJson);
+      
+      // Add to pending approvals
+      await _addToPendingApprovals(newAttendance);
+      
+      return {
+        'success': true,
+        'message': 'Attendance marked as present. Awaiting approval.',
+        'attendance': newAttendance,
+      };
+    } catch (e) {
+      print('Mark attendance present error: $e');
+      return {
+        'success': false,
+        'message': 'Failed to mark attendance: $e',
+      };
+    }
+  }
+
+  // Add attendance to pending approvals list
+  Future<void> _addToPendingApprovals(Attendance attendance) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingJson = prefs.getStringList(_pendingApprovalsKey) ?? [];
+      
+      // Check if already in pending list
+      bool alreadyExists = false;
+      for (String pendingStr in pendingJson) {
+        final pending = Attendance.fromJson(jsonDecode(pendingStr));
+        if (pending.id == attendance.id) {
+          alreadyExists = true;
+          break;
+        }
+      }
+      
+      if (!alreadyExists) {
+        pendingJson.add(jsonEncode(attendance.toJson()));
+        await prefs.setStringList(_pendingApprovalsKey, pendingJson);
+      }
+    } catch (e) {
+      print('Add to pending approvals error: $e');
+    }
+  }
+
+  // Get pending approvals for staff (student attendance)
+  Future<List<Attendance>> getPendingStudentApprovals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingJson = prefs.getStringList(_pendingApprovalsKey) ?? [];
+      
+      List<Attendance> pendingApprovals = [];
+      
+      for (String pendingStr in pendingJson) {
+        final attendance = Attendance.fromJson(jsonDecode(pendingStr));
+        if (attendance.userType == UserType.student && 
+            attendance.status == AttendanceStatus.pending) {
+          pendingApprovals.add(attendance);
+        }
+      }
+      
+      // Sort by date (newest first)
+      pendingApprovals.sort((a, b) => b.date.compareTo(a.date));
+      return pendingApprovals;
+    } catch (e) {
+      print('Get pending student approvals error: $e');
+      return [];
+    }
+  }
+
+  // Get pending approvals for admin (staff attendance)
+  Future<List<Attendance>> getPendingStaffApprovals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingJson = prefs.getStringList(_pendingApprovalsKey) ?? [];
+      
+      List<Attendance> pendingApprovals = [];
+      
+      for (String pendingStr in pendingJson) {
+        final attendance = Attendance.fromJson(jsonDecode(pendingStr));
+        if (attendance.userType == UserType.staff && 
+            attendance.status == AttendanceStatus.pending) {
+          pendingApprovals.add(attendance);
+        }
+      }
+      
+      // Sort by date (newest first)
+      pendingApprovals.sort((a, b) => b.date.compareTo(a.date));
+      return pendingApprovals;
+    } catch (e) {
+      print('Get pending staff approvals error: $e');
+      return [];
+    }
+  }
+
+  // Approve attendance
+  Future<Map<String, dynamic>> approveAttendance(String attendanceId, String approvedBy) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
+      final pendingJson = prefs.getStringList(_pendingApprovalsKey) ?? [];
+      
+      // Update main attendance record
+      for (int i = 0; i < attendanceJson.length; i++) {
+        final attendance = Attendance.fromJson(jsonDecode(attendanceJson[i]));
+        if (attendance.id == attendanceId) {
+          final updatedAttendance = attendance.copyWith(
+            status: AttendanceStatus.approved,
+            approvedBy: approvedBy,
+            approvedAt: DateTime.now(),
+          );
+          
+          attendanceJson[i] = jsonEncode(updatedAttendance.toJson());
+          await prefs.setStringList(_attendanceKey, attendanceJson);
+          
+          // Remove from pending approvals
+          await _removeFromPendingApprovals(attendanceId);
+          
+          // Send email notification if userEmail is available
+          if (attendance.userEmail.isNotEmpty) {
+            await sendAttendanceEmailNotification(
+              userName: attendance.userName,
+              userEmail: attendance.userEmail,
+              date: attendance.date,
+              isApproved: true,
+              actionBy: approvedBy,
+              notes: attendance.notes,
+            );
+          }
+          
+          return {
+            'success': true,
+            'message': 'Attendance approved successfully',
+            'attendance': updatedAttendance,
+          };
+        }
+      }
+      
+      return {
+        'success': false,
+        'message': 'Attendance record not found',
+      };
+    } catch (e) {
+      print('Approve attendance error: $e');
+      return {
+        'success': false,
+        'message': 'Failed to approve attendance: $e',
+      };
+    }
+  }
+
+  // Reject attendance
+  Future<Map<String, dynamic>> rejectAttendance(String attendanceId, String rejectedBy, String reason) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
+      
+      // Update main attendance record
+      for (int i = 0; i < attendanceJson.length; i++) {
+        final attendance = Attendance.fromJson(jsonDecode(attendanceJson[i]));
+        if (attendance.id == attendanceId) {
+          final updatedAttendance = attendance.copyWith(
+            status: AttendanceStatus.rejected,
+            approvedBy: rejectedBy,
+            approvedAt: DateTime.now(),
+            rejectionReason: reason,
+            isPresent: false,
+          );
+          
+          attendanceJson[i] = jsonEncode(updatedAttendance.toJson());
+          await prefs.setStringList(_attendanceKey, attendanceJson);
+          
+          // Remove from pending approvals
+          await _removeFromPendingApprovals(attendanceId);
+          
+          // Send email notification if userEmail is available
+          if (attendance.userEmail.isNotEmpty) {
+            await sendAttendanceEmailNotification(
+              userName: attendance.userName,
+              userEmail: attendance.userEmail,
+              date: attendance.date,
+              isApproved: false,
+              actionBy: rejectedBy,
+              rejectionReason: reason,
+            );
+          }
+          
+          return {
+            'success': true,
+            'message': 'Attendance rejected successfully',
+            'attendance': updatedAttendance,
+          };
+        }
+      }
+      
+      return {
+        'success': false,
+        'message': 'Attendance record not found',
+      };
+    } catch (e) {
+      print('Reject attendance error: $e');
+      return {
+        'success': false,
+        'message': 'Failed to reject attendance: $e',
+      };
+    }
+  }
+
+  // Remove from pending approvals
+  Future<void> _removeFromPendingApprovals(String attendanceId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingJson = prefs.getStringList(_pendingApprovalsKey) ?? [];
+      
+      pendingJson.removeWhere((pendingStr) {
+        final attendance = Attendance.fromJson(jsonDecode(pendingStr));
+        return attendance.id == attendanceId;
+      });
+      
+      await prefs.setStringList(_pendingApprovalsKey, pendingJson);
+    } catch (e) {
+      print('Remove from pending approvals error: $e');
+    }
+  }
+
+  // Send email notification for attendance status change
+  Future<void> sendAttendanceEmailNotification({
+    required String userName,
+    required String userEmail,
+    required DateTime date,
+    required bool isApproved,
+    required String actionBy,
+    String? rejectionReason,
+    String? notes,
+  }) async {
+    try {
+      final subject = isApproved 
+          ? 'Attendance Approved - ${DateFormat('MMM dd, yyyy').format(date)}'
+          : 'Attendance Rejected - ${DateFormat('MMM dd, yyyy').format(date)}';
+      
+      final status = isApproved ? 'APPROVED' : 'REJECTED';
+      
+      String body = '''
+Dear $userName,
+
+Your attendance for ${DateFormat('EEEE, MMMM d, yyyy').format(date)} has been $status.
+
+Details:
+- Date: ${DateFormat('EEEE, MMMM d, yyyy').format(date)}
+- Status: $status
+- Action By: $actionBy
+- Action Date: ${DateFormat('MMM dd, yyyy at HH:mm').format(DateTime.now())}
+''';
+
+      if (notes?.isNotEmpty == true) {
+        body += '- Notes: $notes\n';
+      }
+      
+      if (!isApproved && rejectionReason?.isNotEmpty == true) {
+        body += '- Rejection Reason: $rejectionReason\n';
+      }
+      
+      body += '''
+
+If you have any questions, please contact your supervisor.
+
+Best regards,
+StartupWorld Team
+''';
+
+      // Create email URI
+      final emailUri = Uri(
+        scheme: 'mailto',
+        path: userEmail,
+        queryParameters: {
+          'subject': subject,
+          'body': body,
+        },
+      );
+
+      // Launch email client
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        print('Could not launch email client');
+      }
+    } catch (e) {
+      print('Send email notification error: $e');
     }
   }
 } 

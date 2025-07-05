@@ -19,7 +19,7 @@ class AppConfig {
       'enableLogging': true,
     },
     Environment.production: {
-      'baseUrl': 'https://startupworld.in',
+      'baseUrl': 'https://startupworld.in/',
       'apiKey': 'efc10cqkr4Ta29EIYolGsAxRiwOBVmDgn3X9e5ZMKzyC8bsv7u',
       'timeout': 120, // seconds
       'enableLogging': false,
@@ -38,27 +38,9 @@ class AppConfig {
   
   // Helper methods to get specific config values
   static String get baseUrl => currentConfig['baseUrl'];
-  static String get apiKey {
-    final key = currentConfig['apiKey'];
-    print('🔑 AppConfig.apiKey called:');
-    print('   Environment: ${EnvironmentConfig.environment}');
-    print('   Current config: $currentConfig');
-    print('   API Key from config: ${key.substring(0, 10)}...');
-    print('   Full API Key: $key');
-    return key;
-  }
+  static String get apiKey => currentConfig['apiKey'];
   static int get timeoutSeconds => currentConfig['timeout'];
   static bool get enableLogging => currentConfig['enableLogging'];
-  
-  // Debug method to show current configuration
-  static void debugConfig() {
-    print('🔧 AppConfig Debug:');
-    print('   Environment: ${EnvironmentConfig.environment}');
-    print('   Base URL: $baseUrl');
-    print('   API Key: ${apiKey.substring(0, 10)}...');
-    print('   Timeout: ${timeoutSeconds}s');
-    print('   Logging: $enableLogging');
-  }
   
   // App-specific configurations
   static const String appName = 'StartupWorld';

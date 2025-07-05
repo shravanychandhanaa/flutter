@@ -22,6 +22,9 @@ class StudentListProvider with ChangeNotifier {
   String _selectedCity = '';
   String _fromDate = '';
   String _toDate = '';
+  // New filters
+  bool _teamNotAssigned = false;
+  bool _projectNotAssigned = false;
 
   // Getters
   List<StudentListItem> get students => _students;
@@ -43,6 +46,8 @@ class StudentListProvider with ChangeNotifier {
   String get selectedCity => _selectedCity;
   String get fromDate => _fromDate;
   String get toDate => _toDate;
+  bool get teamNotAssigned => _teamNotAssigned;
+  bool get projectNotAssigned => _projectNotAssigned;
 
   // Get unique values for filter dropdowns
   List<String> get uniqueTeams => _students.map((s) => s.displayTeam).where((t) => t.isNotEmpty).toSet().toList()..sort();
@@ -59,6 +64,8 @@ class StudentListProvider with ChangeNotifier {
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
+
+      print('📞 Loading student list from API...');
 
       // Clear search keyword to get all students
       _searchKeyword = '';
@@ -78,6 +85,8 @@ class StudentListProvider with ChangeNotifier {
         'todate': '',
       });
 
+      print('📥 API Response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final responseData = response.data;
         
@@ -85,7 +94,15 @@ class StudentListProvider with ChangeNotifier {
         
         if (responseData['responseStatus'] == 200) {
           final staffDetails = responseData['Staff_Details'] as List? ?? [];
-          _students = staffDetails.map<StudentListItem>((json) => StudentListItem.fromJson(json)).toList();
+          print('📥 Raw staff details count: ${staffDetails.length}');
+          
+          _students = staffDetails.map<StudentListItem>((json) {
+            final student = StudentListItem.fromJson(json);
+            print('📥 Created student: ${student.displayName} (${student.displayEmail})');
+            return student;
+          }).toList();
+          
+          print('📥 Processed students count: ${_students.length}');
           _applyFilters();
           print('✅ Loaded ${_students.length} students');
         } else {
@@ -156,6 +173,10 @@ class StudentListProvider with ChangeNotifier {
 
   // Apply filters to the student list
   void _applyFilters() {
+    print('🔍 _applyFilters called');
+    print('🔍 Search keyword: "$_searchKeyword"');
+    print('🔍 Total students: ${_students.length}');
+    
     _filteredStudents = _students.where((student) {
       // Keyword search
       if (_searchKeyword.isNotEmpty) {
@@ -165,16 +186,28 @@ class StudentListProvider with ChangeNotifier {
                               student.displayMobile.contains(keyword) ||
                               student.displayCollege.toLowerCase().contains(keyword) ||
                               student.displayProject.toLowerCase().contains(keyword);
-        if (!matchesKeyword) return false;
+        
+        if (!matchesKeyword) {
+          print('🔍 Student "${student.displayName}" does not match keyword "$keyword"');
+          return false;
+        } else {
+          print('🔍 Student "${student.displayName}" matches keyword "$keyword"');
+        }
       }
 
-      // Team filter
-      if (_selectedTeam.isNotEmpty && student.displayTeam != _selectedTeam) {
+      // Team Not Assigned filter
+      if (_teamNotAssigned && (student.displayTeam.isNotEmpty && student.displayTeam.toLowerCase() != 'no team')) {
+        return false;
+      }
+      if (!_teamNotAssigned && _selectedTeam.isNotEmpty && student.displayTeam != _selectedTeam) {
         return false;
       }
 
-      // Project filter
-      if (_selectedProject.isNotEmpty && student.displayProject != _selectedProject) {
+      // Project Not Assigned filter
+      if (_projectNotAssigned && (student.displayProject.isNotEmpty && student.displayProject.toLowerCase() != 'no project')) {
+        return false;
+      }
+      if (!_projectNotAssigned && _selectedProject.isNotEmpty && student.displayProject != _selectedProject) {
         return false;
       }
 
@@ -223,18 +256,18 @@ class StudentListProvider with ChangeNotifier {
       return true;
     }).toList();
 
+    print('🔍 Final filtered students count: ${_filteredStudents.length}');
     notifyListeners();
   }
 
   // Set search keyword
   void setSearchKeyword(String keyword) {
-    if (keyword.isEmpty) {
-      // If keyword is empty, load all students
-      loadStudentList();
-    } else {
-      // If keyword is provided, search for students
-      searchStudents(keyword);
-    }
+    print('🔍 setSearchKeyword called with: "$keyword"');
+    _searchKeyword = keyword;
+    print('🔍 Current students count: ${_students.length}');
+    // Always use local filtering for better performance
+    _applyFilters();
+    print('🔍 Filtered students count: ${_filteredStudents.length}');
   }
 
   // Set team filter
@@ -304,6 +337,18 @@ class StudentListProvider with ChangeNotifier {
     loadStudentList(); // Reload with date filters
   }
 
+  // Set team not assigned filter
+  void setTeamNotAssigned(bool value) {
+    _teamNotAssigned = value;
+    _applyFilters();
+  }
+
+  // Set project not assigned filter
+  void setProjectNotAssigned(bool value) {
+    _projectNotAssigned = value;
+    _applyFilters();
+  }
+
   // Clear all filters
   void clearFilters() {
     _searchKeyword = '';
@@ -319,6 +364,8 @@ class StudentListProvider with ChangeNotifier {
     _selectedCity = '';
     _fromDate = '';
     _toDate = '';
+    _teamNotAssigned = false;
+    _projectNotAssigned = false;
     _applyFilters();
   }
 
@@ -343,6 +390,8 @@ class StudentListProvider with ChangeNotifier {
     _selectedCity = '';
     _fromDate = '';
     _toDate = '';
+    _teamNotAssigned = false;
+    _projectNotAssigned = false;
     
     await loadStudentList();
   }

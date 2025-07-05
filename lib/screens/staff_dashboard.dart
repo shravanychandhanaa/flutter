@@ -8,12 +8,15 @@ import '../models/student_list_item.dart';
 import '../providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/student_list_provider.dart';
+import '../providers/attendance_provider.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/staff_bottom_navigation.dart';
 import 'login_screen.dart';
 import 'create_task_screen.dart';
 import 'attendance_report_screen.dart';
+import 'attendance_approval_screen.dart';
 import '../services/task_service.dart';
+import 'student_attendance_screen.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -42,6 +45,10 @@ class _StaffDashboardState extends State<StaffDashboard> {
   String _selectedStudentWorkType = '';
   String _selectedStudentState = '';
   String _selectedStudentCity = '';
+  
+  // New filters
+  bool _teamNotAssigned = false;
+  bool _projectNotAssigned = false;
 
   // Advanced search parameters
   bool _showAdvancedSearch = false;
@@ -75,11 +82,28 @@ class _StaffDashboardState extends State<StaffDashboard> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
     
     if (authProvider.currentUser != null) {
-      print('👤 Current user: ${authProvider.currentUser!.name} (${authProvider.currentUser!.userType})');
+      print('👤 Current user: [33m${authProvider.currentUser!.name} (${authProvider.currentUser!.userType})[0m');
       // Set current user in task provider for correct task reloading
       taskProvider.setCurrentUser(authProvider.currentUser!.id, authProvider.currentUser!.userType);
+      // Load today's attendance for staff
+      await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
+      // Redirect to attendance screen if not marked and user is staff
+      if (authProvider.currentUser!.userType == UserType.staff && (attendanceProvider.todayAttendance == null || !attendanceProvider.todayAttendance!.isPresent)) {
+        if (ModalRoute.of(context)?.settings.name != '/student_attendance') {
+          Future.microtask(() {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const StudentAttendanceScreen(),
+                settings: const RouteSettings(name: '/student_attendance'),
+              ),
+            );
+          });
+        }
+        return;
+      }
     } else {
       print('⚠️ No current user found');
     }
@@ -796,6 +820,40 @@ class _StaffDashboardState extends State<StaffDashboard> {
                   ],
                 ),
 
+                // Team/Project Not Assigned Filters
+                Row(
+                  children: [
+                    Expanded(
+                      child: CheckboxListTile(
+                        title: const Text('Team Not Assigned'),
+                        value: _teamNotAssigned,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            _teamNotAssigned = value ?? false;
+                          });
+                          studentListProvider.setTeamNotAssigned(value ?? false);
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    Expanded(
+                      child: CheckboxListTile(
+                        title: const Text('Project Not Assigned'),
+                        value: _projectNotAssigned,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            _projectNotAssigned = value ?? false;
+                          });
+                          studentListProvider.setProjectNotAssigned(value ?? false);
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+
                 // Advanced Filters
                 if (_showAdvancedSearch) ...[
                   const SizedBox(height: 16),
@@ -1282,22 +1340,19 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
-                height: screenWidth < 600 ? 200 : 120, // Fixed height to prevent overlapping
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: spacing,
-                  mainAxisSpacing: spacing,
-                  childAspectRatio: childAspectRatio,
-                  children: [
-                    _buildStatCard('Total Tasks', stats['Total']!, Colors.blue),
-                    _buildStatCard('Assigned', stats['Assigned']!, Colors.orange),
-                    _buildStatCard('In Progress', stats['In Progress']!, Colors.blue),
-                    _buildStatCard('Completed', stats['Completed']!, Colors.green),
-                  ],
-                ),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                childAspectRatio: childAspectRatio,
+                children: [
+                  _buildStatCard('Total Tasks', stats['Total']!, Colors.blue),
+                  _buildStatCard('Assigned', stats['Assigned']!, Colors.orange),
+                  _buildStatCard('In Progress', stats['In Progress']!, Colors.blue),
+                  _buildStatCard('Completed', stats['Completed']!, Colors.green),
+                ],
               ),
               const SizedBox(height: 24),
 
@@ -1635,6 +1690,116 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 ),
               ),
 
+            // Task Count Display
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.task_alt,
+                        color: Colors.green[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Showing ${displayTasks.length} of ${taskProvider.tasks.length} tasks',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Show status breakdown
+                  if (displayTasks.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${displayTasks.where((t) => t.status == TaskStatus.assigned).length} Assigned',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${displayTasks.where((t) => t.status == TaskStatus.inProgress).length} In Progress',
+                              style: TextStyle(
+                                color: Colors.orange[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${displayTasks.where((t) => t.status == TaskStatus.completed).length} Completed',
+                              style: TextStyle(
+                                color: Colors.green[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (_selectedFilter != 'All' || _teamFilter.isNotEmpty || _projectFilter.isNotEmpty || _startDate != null || _taskSearchController.text.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Filtered',
+                                style: TextStyle(
+                                  color: Colors.orange[700],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
             // Tasks List
             Expanded(
               child: taskProvider.isLoading
@@ -1813,6 +1978,86 @@ class _StaffDashboardState extends State<StaffDashboard> {
                     icon: const Icon(Icons.filter_list),
                     tooltip: 'Filter Students',
                   ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      print('🧪 Test search functionality');
+                      final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
+                      print('🧪 Current students: ${studentListProvider.students.length}');
+                      print('🧪 Filtered students: ${studentListProvider.filteredStudents.length}');
+                      print('🧪 Search keyword: "${studentListProvider.searchKeyword}"');
+                      
+                      // Test search with a simple keyword
+                      studentListProvider.setSearchKeyword('test');
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Test search completed - check console for details'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.bug_report),
+                    tooltip: 'Test Search',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.orange[200],
+                      foregroundColor: Colors.orange[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Student Count Display
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.people,
+                    color: Colors.blue[700],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Showing ${studentListProvider.filteredStudents.length} of ${studentListProvider.students.length} students',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue[700],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (studentListProvider.searchKeyword.isNotEmpty ||
+                      studentListProvider.selectedTeam.isNotEmpty ||
+                      studentListProvider.selectedProject.isNotEmpty ||
+                      studentListProvider.selectedStatus.isNotEmpty ||
+                      studentListProvider.selectedCollege.isNotEmpty ||
+                      studentListProvider.selectedWorkCategory.isNotEmpty ||
+                      studentListProvider.selectedWorkType.isNotEmpty ||
+                      studentListProvider.selectedState.isNotEmpty ||
+                      studentListProvider.selectedCity.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Filtered',
+                        style: TextStyle(
+                          color: Colors.orange[700],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -2193,127 +2438,110 @@ class _StaffDashboardState extends State<StaffDashboard> {
   }
 
   Widget _buildReportsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.assessment,
-            size: 64,
-            color: _getThemeColor(),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Reports & Analytics',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Coming soon!',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const AttendanceApprovalScreen();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-        
-        if (user == null) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(_getAppBarTitle()),
-            backgroundColor: _getThemeColor(),
-            foregroundColor: Colors.white,
-            actions: [
-              if (_currentIndex == 1) // Tasks tab
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final todayAttendance = attendanceProvider.todayAttendance;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_getAppBarTitle()),
+        backgroundColor: _getThemeColor(),
+        foregroundColor: Colors.white,
+        actions: [
+          if (_currentIndex == 1) // Tasks tab
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  onPressed: _showAdvancedSearchDialog,
+                  tooltip: 'Advanced Search',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: _showTaskFilterDialog,
+                  tooltip: 'Quick Filters',
+                ),
+              ],
+            ),
+          if (_currentIndex == 2) // Students tab
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: _showStudentFilterDialog,
+                  tooltip: 'Filter Students',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
+                    studentListProvider.loadStudentList();
+                  },
+                  tooltip: 'Refresh',
+                ),
+              ],
+            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
+      ),
+      drawer: user != null ? AppDrawer(user: user, themeColor: _getThemeColor()) : null,
+      body: (attendanceProvider.isLoading)
+          ? const Center(child: CircularProgressIndicator())
+          : (todayAttendance == null || !todayAttendance.isPresent)
+              ? const StudentAttendanceScreen()
+              : IndexedStack(
+                  index: _currentIndex,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.tune),
-                      onPressed: _showAdvancedSearchDialog,
-                      tooltip: 'Advanced Search',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.filter_list),
-                      onPressed: _showTaskFilterDialog,
-                      tooltip: 'Quick Filters',
-                    ),
+                    _buildDashboardTab(),
+                    _buildTasksTab(),
+                    _buildStudentsTab(),
+                    _buildReportsTab(),
                   ],
                 ),
-              if (_currentIndex == 2) // Students tab
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.filter_list),
-                      onPressed: _showStudentFilterDialog,
-                      tooltip: 'Filter Students',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () {
-                        final studentListProvider = Provider.of<StudentListProvider>(context, listen: false);
-                        studentListProvider.loadStudentList();
-                      },
-                      tooltip: 'Refresh',
-                    ),
-                  ],
-                ),
-              IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: _logout,
-                tooltip: 'Logout',
-              ),
-            ],
-          ),
-          drawer: AppDrawer(user: user, themeColor: _getThemeColor()),
-          body: IndexedStack(
-            index: _currentIndex,
-            children: [
-              _buildDashboardTab(),
-              _buildTasksTab(),
-              _buildStudentsTab(),
-              _buildReportsTab(),
-            ],
-          ),
-          bottomNavigationBar: StaffBottomNavigation(
-            currentIndex: _currentIndex,
-            onTap: _onBottomNavTap,
-            themeColor: _getThemeColor(),
-          ),
-          floatingActionButton: _currentIndex == 1 // Tasks tab
+      bottomNavigationBar: StaffBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        themeColor: _getThemeColor(),
+      ),
+      floatingActionButton: _currentIndex == 1 // Tasks tab
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CreateTaskScreen(),
+                  ),
+                );
+              },
+              backgroundColor: _getThemeColor(),
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            )
+          : _currentIndex == 3 // Attendance tab
               ? FloatingActionButton(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const CreateTaskScreen(),
-                      ),
-                    );
+                    _showMarkAttendanceDialog();
                   },
                   backgroundColor: _getThemeColor(),
                   foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
+                  child: const Icon(Icons.person_add),
                 )
               : null,
-        );
-      },
     );
   }
 
@@ -2326,7 +2554,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
       case 2:
         return 'Student List';
       case 3:
-        return 'Reports';
+        return 'Attendance Approvals';
       default:
         return 'Staff Dashboard';
     }
@@ -2335,35 +2563,188 @@ class _StaffDashboardState extends State<StaffDashboard> {
   Widget _buildStatCard(String title, int count, Color color) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
+            const SizedBox(height: 6),
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMarkAttendanceDialog() {
+    final TextEditingController notesController = TextEditingController();
+    String selectedUserId = '';
+    bool isPresent = true;
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Mark Attendance'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // User selection
+                DropdownButtonFormField<String>(
+                  value: selectedUserId.isEmpty ? null : selectedUserId,
+                  decoration: const InputDecoration(
+                    labelText: 'Select Student',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _allUsers
+                      .where((user) => user.userType == UserType.student)
+                      .map((user) => DropdownMenuItem(
+                            value: user.id,
+                            child: Text(user.name),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedUserId = value ?? '';
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                
+                // Date selection
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      setState(() {
+                        selectedDate = date;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      DateFormat('MMM dd, yyyy').format(selectedDate),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Present/Absent toggle
+                Row(
+                  children: [
+                    const Text('Status: '),
+                    const SizedBox(width: 16),
+                    ChoiceChip(
+                      label: const Text('Present'),
+                      selected: isPresent,
+                      onSelected: (selected) {
+                        setState(() {
+                          isPresent = selected;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('Absent'),
+                      selected: !isPresent,
+                      onSelected: (selected) {
+                        setState(() {
+                          isPresent = !selected;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Notes
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selectedUserId.isEmpty
+                  ? null
+                  : () async {
+                      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+                      
+                      final selectedUser = _allUsers.firstWhere((user) => user.id == selectedUserId);
+                      
+                      final success = await attendanceProvider.markAttendance(
+                        selectedUser.id,
+                        selectedUser.name,
+                        selectedUser.email,
+                        selectedDate,
+                        isPresent,
+                        selectedUser.userType,
+                        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                      );
+                      
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Attendance marked for ${selectedUser.name}'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(attendanceProvider.errorMessage ?? 'Failed to mark attendance'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: const Text('Mark Attendance'),
             ),
           ],
         ),

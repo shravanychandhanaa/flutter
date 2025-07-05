@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/api_service.dart';
 import '../widgets/environment_selector.dart';
 import '../config/environment.dart';
 import 'register_screen.dart';
@@ -24,71 +23,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _rememberMe = false;
   bool _obscurePassword = true;
-  Environment _selectedEnvironment = Environment.development;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedEnvironment = EnvironmentConfig.environment;
-    print('🔧 LoginScreen initState: _selectedEnvironment = $_selectedEnvironment');
-  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  void _onEnvironmentChanged(Environment newEnvironment) {
-    print('🔄 LoginScreen: Environment changed from $_selectedEnvironment to $newEnvironment');
-    setState(() {
-      _selectedEnvironment = newEnvironment;
-    });
-    
-    // Update the environment configuration
-    switch (newEnvironment) {
-      case Environment.development:
-        EnvironmentConfig.setEnvironment(Environment.development);
-        break;
-      case Environment.testing:
-        EnvironmentConfig.setEnvironment(Environment.testing);
-        break;
-      case Environment.production:
-        EnvironmentConfig.setEnvironment(Environment.production);
-        break;
-    }
-    
-    // Show feedback to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Switched to ${_getEnvironmentDisplayName(newEnvironment)} environment'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: _getEnvironmentColor(newEnvironment),
-      ),
-    );
-  }
-
-  String _getEnvironmentDisplayName(Environment env) {
-    switch (env) {
-      case Environment.development:
-        return 'Development';
-      case Environment.testing:
-        return 'Testing';
-      case Environment.production:
-        return 'Production';
-    }
-  }
-
-  Color _getEnvironmentColor(Environment env) {
-    switch (env) {
-      case Environment.development:
-        return Colors.orange;
-      case Environment.testing:
-        return Colors.blue;
-      case Environment.production:
-        return Colors.green;
-    }
   }
 
   Future<void> _login() async {
@@ -180,29 +120,30 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            colors: [Color(0xFF667eea), Colors.white],
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
+          child: Stack(
+            children: [
+              // Environment selector in top-right corner
+              Positioned(
+                top: 16,
+                right: 16,
+                child: const EnvironmentSelector(),
+              ),
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.work_outline,
-                          size: 80,
-                          color: Color(0xFF667eea),
+                        Image.asset(
+                          'assets/icon/app_icon.png',
+                          width: 80,
+                          height: 80,
                         ),
                         const SizedBox(height: 24),
                         const Text(
@@ -222,12 +163,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 32),
-                        // Environment Selector
-                        EnvironmentSelector(
-                          initialEnvironment: _selectedEnvironment,
-                          onEnvironmentChanged: _onEnvironmentChanged,
-                        ),
-                        const SizedBox(height: 16),
                         // User Type Selection
                         DropdownButtonFormField<UserType>(
                           value: _selectedUserType,
@@ -319,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           height: 50,
@@ -362,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),

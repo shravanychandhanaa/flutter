@@ -23,7 +23,7 @@ class EnvironmentConfig {
       case Environment.testing:
         return "https://test.startupworld.in/";
       case Environment.production:
-        return "https://startupworld.in";
+        return "https://startupworld.in/";
     }
   }
   
@@ -110,7 +110,7 @@ class EnvironmentConfig {
         };
       case Environment.production:
         return {
-          'baseUrl': 'https://startupworld.in',
+          'baseUrl': 'https://startupworld.in/',
           'apiKey': 'efc10cqkr4Ta29EIYolGsAxRiwOBVmDgn3X9e5ZMKzyC8bsv7u',
           'timeout': 120,
           'enableLogging': false,

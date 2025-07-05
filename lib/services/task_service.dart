@@ -13,30 +13,24 @@ class TaskService {
 
   // Create a new task
   Future<Map<String, dynamic>> createTask({
-    String? taskId,
-    String? activityStatus,
-    String? taskTitle,
-    String? remark,
-    String? studentId,
     required String title,
     required String description,
-    required String assignedTo,
-    required String assignedBy,
-    required String team,
+    required String studentId,
     required String project,
-    DateTime? dueDate,
+    required String team,
+    String? remark,
+    String? taskId,
+    String? taskTitle,
+    String? activityStatus,
     String? notes,
   }) async {
     try {
       Map<String, dynamic> taskData = {
         'title': title,
         'description': description,
-        'assigned_to': assignedTo,
-        'assigned_by': assignedBy,
+        'student_id': studentId,
+        'project': project,
         'team': team,
-        'project': project.isNotEmpty ? project : 'General',
-        'project_name': project.isNotEmpty ? project : 'General',
-        'due_date': dueDate?.toIso8601String(),
         'notes': notes ?? '',
         'status': 'assigned',
         'activityStatus': activityStatus ?? 'assigned',
@@ -50,12 +44,6 @@ class TaskService {
       if (taskId != null && taskId.isNotEmpty) taskData['id'] = taskId;
       if (taskTitle != null) taskData['t_title'] = taskTitle;
 
-      // Always add remark field - even if empty
-      print('DEBUG: remark parameter received: $remark');
-      print('DEBUG: remark is null: ${remark == null}');
-      print('DEBUG: remark is empty: ${remark?.isEmpty ?? true}');
-      print('DEBUG: remark trimmed: ${remark?.trim() ?? ""}');
-
       // Always set remark field (not tremark)
       taskData['remark'] = remark?.trim() ?? '';
 
@@ -64,31 +52,14 @@ class TaskService {
         final userId = int.tryParse(studentId);
         if (userId != null) {
           taskData['student_id'] = userId.toString(); // PHP expects 'student_id'
-          print('DEBUG: Valid student ID set: ${taskData['student_id']}');
         } else {
-          print('DEBUG: Invalid student ID: $studentId');
           throw Exception('Invalid student ID: $studentId');
         }
       } else {
-        print('DEBUG: studentId is null or empty: $studentId');
         throw Exception('Student ID is required and cannot be empty');
       }
 
-      // Debug logging
-      print('📤 Task Data being sent: $taskData');
-      print('📤 Student ID: ${taskData['student_id']}');
-      print('📤 Remark field: ${taskData['remark']}');
-      print('📤 Project value: "$project"');
-      print('📤 Team value: "$team"');
-      print('📤 Title value: "$title"');
-      print('📤 Description value: "$description"');
-      print('DEBUG: taskData before sending: ' + taskData.toString());
-
       final response = await ApiService.addTask(taskData);
-
-      // Debug logging
-      print('📥 Response Status: ${response.statusCode}');
-      print('📥 Response Data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
@@ -112,7 +83,6 @@ class TaskService {
         };
       }
     } catch (e) {
-      print('Create task error: $e');
       return {
         'success': false,
         'message': 'Failed to create task: $e',
@@ -131,17 +101,11 @@ class TaskService {
       if (response.statusCode == 200) {
         final responseData = response.data;
         
-        print('📥 getTasksForUser response: $responseData');
-        
         if (responseData['responseStatus'] == 200) {
           List<Task> tasks = [];
           final postsList = responseData['posts'] ?? [];
           
-          print('📋 Found ${postsList.length} posts in response');
-          
           for (var postData in postsList) {
-            print('📋 Processing post: $postData');
-            
             // Map the API response fields to Task model fields
             tasks.add(Task(
               id: postData['id']?.toString() ?? '',
@@ -164,16 +128,12 @@ class TaskService {
             ));
           }
           
-          print('✅ Created ${tasks.length} Task objects');
           return tasks;
-        } else {
-          print('❌ API returned error status: ${responseData['responseStatus']}');
         }
       }
       
       return [];
     } catch (e) {
-      print('Get tasks for user error: $e');
       return [];
     }
   }
@@ -181,19 +141,12 @@ class TaskService {
   // Get all tasks (for staff)
   Future<List<Task>> getAllTasks() async {
     try {
-      print('🔍 getAllTasks called - fetching all tasks for staff view');
-      
       final response = await ApiService.getAllTasksForStaff({
         'api_key': AppConfig.apiKey,
       });
 
-      print('📥 getAllTasks response status: ${response.statusCode}');
-      print('📥 getAllTasks response data: ${response.data}');
-
       if (response.statusCode == 200) {
         final responseData = response.data;
-        
-        print('📥 getAllTasks response: $responseData');
         
         if (responseData['responseStatus'] == 200) {
           List<Task> tasks = [];
@@ -201,17 +154,7 @@ class TaskService {
           // Handle the new response format with "Assigned Tasks Lists"
           final assignedTasksList = responseData['Assigned Tasks Lists'] ?? [];
           
-          print('📋 Found ${assignedTasksList.length} assigned tasks in response');
-          
-          if (assignedTasksList.isEmpty) {
-            print('⚠️ No assigned tasks found in response. Response structure:');
-            print('   responseData keys: ${responseData.keys.toList()}');
-            print('   responseData: $responseData');
-          }
-          
           for (var taskData in assignedTasksList) {
-            print('📋 Processing assigned task: $taskData');
-            
             // Map the new API response fields to Task model fields
             tasks.add(Task(
               id: taskData['student_id']?.toString() ?? '', // Use student_id as task ID for now
@@ -234,23 +177,12 @@ class TaskService {
             ));
           }
           
-          print('✅ Created ${tasks.length} Task objects for staff view');
-          print('📋 Task details:');
-          for (var task in tasks) {
-            print('   - ID: ${task.id}, Title: ${task.title}, AssignedTo: ${task.assignedTo}, Status: ${task.status}');
-          }
           return tasks;
-        } else {
-          print('❌ API returned error status: ${responseData['responseStatus']}');
-          print('❌ Error message: ${responseData['responseMessage']}');
         }
-      } else {
-        print('❌ HTTP error: ${response.statusCode}');
       }
       
       return [];
     } catch (e) {
-      print('❌ Get all tasks error: $e');
       return [];
     }
   }
@@ -258,17 +190,10 @@ class TaskService {
   // Get all tasks with custom date range (for staff)
   Future<List<Task>> getAllTasksWithDateRange(DateTime fromDate, DateTime toDate) async {
     try {
-      print('🔍 getAllTasksWithDateRange called - fetching tasks from $fromDate to $toDate');
-      
       final response = await ApiService.getAllTasksForStaffWithDateRange(fromDate, toDate);
-
-      print('📥 getAllTasksWithDateRange response status: ${response.statusCode}');
-      print('📥 getAllTasksWithDateRange response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        
-        print('📥 getAllTasksWithDateRange response: $responseData');
         
         if (responseData['responseStatus'] == 200) {
           List<Task> tasks = [];
@@ -276,12 +201,7 @@ class TaskService {
           // Handle the new response format with "Assigned Tasks Lists"
           final assignedTasksList = responseData['Assigned Tasks Lists'] ?? [];
           
-          print('📋 Found ${assignedTasksList.length} assigned tasks in response for date range');
-          
           for (var taskData in assignedTasksList) {
-            print('📋 Processing assigned task: $taskData');
-            
-            // Map the new API response fields to Task model fields
             tasks.add(Task(
               id: taskData['student_id']?.toString() ?? '', // Use student_id as task ID for now
               title: taskData['assign_task_description']?.isNotEmpty == true 
@@ -303,7 +223,6 @@ class TaskService {
             ));
           }
           
-          print('✅ Created ${tasks.length} Task objects for date range');
           return tasks;
         } else {
           print('❌ API returned error status: ${responseData['responseStatus']}');
@@ -324,15 +243,20 @@ class TaskService {
   Future<Map<String, dynamic>> updateTaskStatus(String taskId, TaskStatus newStatus) async {
     try {
       Map<String, dynamic> updateData = {
-        'task_id': taskId,
+        'id': taskId,
+        'activity_status': _taskStatusToString(newStatus),
         'status': _taskStatusToString(newStatus),
+        'updated_date': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+        'submit': 'submit',
       };
 
       // Add time tracking data
       if (newStatus == TaskStatus.inProgress) {
         updateData['started_at'] = DateTime.now().toIso8601String();
+        updateData['started_date'] = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
       } else if (newStatus == TaskStatus.completed) {
         updateData['completed_at'] = DateTime.now().toIso8601String();
+        updateData['completed_date'] = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
       }
 
       final response = await ApiService.addTask(updateData);
@@ -340,15 +264,15 @@ class TaskService {
       if (response.statusCode == 200) {
         final responseData = response.data;
         
-        if (responseData['status'] == 'success') {
+        if (responseData['responseStatus'] == 200 || responseData['status'] == 'success') {
           return {
             'success': true,
-            'message': responseData['message'] ?? 'Task status updated successfully',
+            'message': responseData['responseMessage'] ?? responseData['message'] ?? 'Task status updated successfully',
           };
         } else {
           return {
             'success': false,
-            'message': responseData['message'] ?? 'Failed to update task status',
+            'message': responseData['responseMessage'] ?? responseData['message'] ?? 'Failed to update task status',
           };
         }
       } else {
@@ -358,7 +282,6 @@ class TaskService {
         };
       }
     } catch (e) {
-      print('Update task status error: $e');
       return {
         'success': false,
         'message': 'Failed to update task status: $e',
@@ -395,7 +318,6 @@ class TaskService {
         };
       }
     } catch (e) {
-      print('Update task notes error: $e');
       return {
         'success': false,
         'message': 'Failed to update task notes: $e',
@@ -437,7 +359,6 @@ class TaskService {
         };
       }
     } catch (e) {
-      print('Assign task error: $e');
       return {
         'success': false,
         'message': 'Failed to assign task: $e',
@@ -477,7 +398,6 @@ class TaskService {
         };
       }
     } catch (e) {
-      print('Set user open to tasks error: $e');
       return {
         'success': false,
         'message': 'Failed to update availability: $e',
@@ -626,30 +546,21 @@ class TaskService {
     }
   }
 
-  // Get all student tasks for staff view (new API endpoint)
+  // Get all student tasks for staff view
   Future<List<Task>> getAllStudentTasksForStaff() async {
     try {
-      print('🔍 getAllStudentTasksForStaff called - fetching all student tasks for staff view');
-      
       // Use a broader date range - last 30 days instead of just today
       final now = DateTime.now();
-      final fromDate = '${now.year}-${(now.month - 1).toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final toDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final fromDate = now.subtract(const Duration(days: 30));
+      final toDate = now;
       
-      // Prepare request data
       Map<String, dynamic> requestData = {
-        'from_date': fromDate,
-        'to_date': toDate,
+        'from_date': DateFormat('yyyy-MM-dd').format(fromDate),
+        'to_date': DateFormat('yyyy-MM-dd').format(toDate),
         'api_key': AppConfig.apiKey,
       };
       
-      print('📤 Request data: $requestData');
-      print('📅 Date range: $fromDate to $toDate (last 30 days)');
-      
       final response = await ApiService.getAllTasksForStaff(requestData);
-
-      print('📥 getAllStudentTasksForStaff response status: ${response.statusCode}');
-      print('�� getAllStudentTasksForStaff response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
@@ -660,30 +571,7 @@ class TaskService {
           // Handle the new response format with "Assigned Tasks Lists"
           final assignedTasksList = responseData['Assigned Tasks Lists'] ?? [];
           
-          print('📋 Found ${assignedTasksList.length} assigned tasks in response');
-          
-          if (assignedTasksList.isEmpty) {
-            print('⚠️ No assigned tasks found in response. Response structure:');
-            print('   responseData keys: ${responseData.keys.toList()}');
-            print('   responseData: $responseData');
-            
-            // Try alternative response formats
-            final alternativeKeys = ['tasks', 'task_list', 'data', 'posts'];
-            for (var key in alternativeKeys) {
-              if (responseData[key] != null) {
-                print('🔍 Found alternative key: $key with ${responseData[key].length} items');
-                final alternativeList = responseData[key] as List;
-                for (var item in alternativeList) {
-                  print('   Alternative item: $item');
-                }
-              }
-            }
-          }
-          
           for (var taskData in assignedTasksList) {
-            print('📋 Processing assigned task: $taskData');
-            
-            // Map the new API response fields to Task model fields
             tasks.add(Task(
               id: taskData['student_id']?.toString() ?? '', // Use student_id as task ID for now
               title: taskData['assign_task_description']?.isNotEmpty == true 
@@ -692,8 +580,8 @@ class TaskService {
               description: taskData['assign_task_description'] ?? '',
               assignedTo: taskData['student_id']?.toString() ?? '',
               assignedBy: taskData['assign_from_name'] ?? taskData['assign_from_entity'] ?? 'Unknown',
-              team: taskData['team_name'] ?? taskData['team'] ?? '', // Try to get team info
-              project: taskData['project_name'] ?? taskData['project'] ?? '', // Try to get project info
+              team: '', // Not provided in this response
+              project: '', // Not provided in this response
               assignedDate: DateTime.tryParse(taskData['created_date'] ?? '') ?? DateTime.now(),
               dueDate: null, // Not provided in current response
               status: TaskStatus.assigned, // Default to assigned since these are assigned tasks
@@ -705,43 +593,24 @@ class TaskService {
             ));
           }
           
-          print('✅ Created ${tasks.length} Task objects for staff view');
-          print('📋 Task details:');
-          for (var task in tasks) {
-            print('   - ID: ${task.id}, Title: ${task.title}, AssignedTo: ${task.assignedTo}, Status: ${task.status}');
-          }
           return tasks;
-        } else {
-          print('❌ API returned error status: ${responseData['responseStatus']}');
-          print('❌ Error message: ${responseData['responseMessage']}');
         }
-      } else {
-        print('❌ HTTP error: ${response.statusCode}');
       }
       
       return [];
     } catch (e) {
-      print('❌ Get all student tasks for staff error: $e');
       return [];
     }
   }
 
-  // Get all student tasks for staff view without date filtering (fallback method)
+  // Get all student tasks for staff view without date filter
   Future<List<Task>> getAllStudentTasksForStaffNoDateFilter() async {
     try {
-      print('🔍 getAllStudentTasksForStaffNoDateFilter called - fetching all student tasks without date filter');
-      
-      // Prepare request data without date filtering
       Map<String, dynamic> requestData = {
         'api_key': AppConfig.apiKey,
       };
       
-      print('📤 Request data (no date filter): $requestData');
-      
       final response = await ApiService.getAllTasksForStaff(requestData);
-
-      print('📥 getAllStudentTasksForStaffNoDateFilter response status: ${response.statusCode}');
-      print('📥 getAllStudentTasksForStaffNoDateFilter response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
@@ -752,30 +621,7 @@ class TaskService {
           // Handle the new response format with "Assigned Tasks Lists"
           final assignedTasksList = responseData['Assigned Tasks Lists'] ?? [];
           
-          print('📋 Found ${assignedTasksList.length} assigned tasks in response (no date filter)');
-          
-          if (assignedTasksList.isEmpty) {
-            print('⚠️ No assigned tasks found in response (no date filter). Response structure:');
-            print('   responseData keys: ${responseData.keys.toList()}');
-            print('   responseData: $responseData');
-            
-            // Try alternative response formats
-            final alternativeKeys = ['tasks', 'task_list', 'data', 'posts'];
-            for (var key in alternativeKeys) {
-              if (responseData[key] != null) {
-                print('🔍 Found alternative key: $key with ${responseData[key].length} items');
-                final alternativeList = responseData[key] as List;
-                for (var item in alternativeList) {
-                  print('   Alternative item: $item');
-                }
-              }
-            }
-          }
-          
           for (var taskData in assignedTasksList) {
-            print('📋 Processing assigned task (no date filter): $taskData');
-            
-            // Map the new API response fields to Task model fields
             tasks.add(Task(
               id: taskData['student_id']?.toString() ?? '', // Use student_id as task ID for now
               title: taskData['assign_task_description']?.isNotEmpty == true 
@@ -784,8 +630,8 @@ class TaskService {
               description: taskData['assign_task_description'] ?? '',
               assignedTo: taskData['student_id']?.toString() ?? '',
               assignedBy: taskData['assign_from_name'] ?? taskData['assign_from_entity'] ?? 'Unknown',
-              team: taskData['team_name'] ?? taskData['team'] ?? '', // Try to get team info
-              project: taskData['project_name'] ?? taskData['project'] ?? '', // Try to get project info
+              team: '', // Not provided in this response
+              project: '', // Not provided in this response
               assignedDate: DateTime.tryParse(taskData['created_date'] ?? '') ?? DateTime.now(),
               dueDate: null, // Not provided in current response
               status: TaskStatus.assigned, // Default to assigned since these are assigned tasks
@@ -797,23 +643,12 @@ class TaskService {
             ));
           }
           
-          print('✅ Created ${tasks.length} Task objects for staff view (no date filter)');
-          print('📋 Task details:');
-          for (var task in tasks) {
-            print('   - ID: ${task.id}, Title: ${task.title}, AssignedTo: ${task.assignedTo}, Status: ${task.status}');
-          }
           return tasks;
-        } else {
-          print('❌ API returned error status: ${responseData['responseStatus']}');
-          print('❌ Error message: ${responseData['responseMessage']}');
         }
-      } else {
-        print('❌ HTTP error: ${response.statusCode}');
       }
       
       return [];
     } catch (e) {
-      print('❌ Get all student tasks for staff error (no date filter): $e');
       return [];
     }
   }

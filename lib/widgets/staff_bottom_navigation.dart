@@ -37,7 +37,7 @@ class StaffBottomNavigation extends StatelessWidget {
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.assessment),
-          label: 'Reports',
+          label: 'Attendance',
         ),
       ],
     );

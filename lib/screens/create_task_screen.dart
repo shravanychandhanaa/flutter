@@ -94,11 +94,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         studentId: isStaff ? _selectedUserId! : currentUser.id, // For students, assign to themselves
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        assignedTo: isStaff ? _selectedUserId! : currentUser.id, // For students, assign to themselves
-        assignedBy: currentUser.id,
         team: _teamController.text.trim(),
         project: _projectController.text.trim(),
-        dueDate: _dueDate,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       );
 

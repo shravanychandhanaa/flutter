@@ -29,20 +29,12 @@ class TaskProvider with ChangeNotifier {
 
   // Reload tasks based on current user type
   Future<void> _reloadTasks() async {
-    print('🔄 _reloadTasks called:');
-    print('   Current User ID: $_currentUserId');
-    print('   Current User Type: $_currentUserType');
-    
     if (_currentUserId != null) {
       if (_currentUserType == UserType.student) {
-        print('   Reloading tasks for student: $_currentUserId');
         await loadTasksForUser(_currentUserId!);
       } else {
-        print('   Reloading all tasks for staff');
         await loadAllTasks();
       }
-    } else {
-      print('   No current user set, skipping reload');
     }
   }
 
@@ -60,10 +52,11 @@ class TaskProvider with ChangeNotifier {
 
     try {
       _tasks = await _taskService.getTasksForUser(userId);
+      // Sort tasks by assigned date (newest first)
+      _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
       _filteredTasks = _tasks;
     } catch (e) {
       _errorMessage = 'Failed to load tasks: $e';
-      print('TaskProvider loadTasksForUser error: $e');
     }
 
     _isLoading = false;
@@ -72,31 +65,27 @@ class TaskProvider with ChangeNotifier {
 
   // Load all tasks (for staff)
   Future<void> loadAllTasks() async {
-    print('🔄 TaskProvider.loadAllTasks() called');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      print('📞 Calling _taskService.getAllTasks()');
       _tasks = await _taskService.getAllTasks();
-      print('📥 Received ${_tasks.length} tasks from service');
       
+      // Sort tasks by assigned date (newest first)
+      _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
       _filteredTasks = _tasks;
-      print('✅ Set filteredTasks to ${_filteredTasks.length} tasks');
       
       // Debug: Print task details
       for (var task in _tasks) {
-        print('   Task: ID=${task.id}, Title="${task.title}", AssignedTo=${task.assignedTo}, Status=${task.status}');
+        // print('   Task: ID=${task.id}, Title="${task.title}", AssignedTo=${task.assignedTo}, Status=${task.status}');
       }
     } catch (e) {
       _errorMessage = 'Failed to load tasks: $e';
-      print('❌ TaskProvider loadAllTasks error: $e');
     }
 
     _isLoading = false;
     notifyListeners();
-    print('🔄 TaskProvider.loadAllTasks() completed. Tasks: ${_tasks.length}, Filtered: ${_filteredTasks.length}');
   }
 
   // Load projects list
@@ -105,7 +94,6 @@ class TaskProvider with ChangeNotifier {
       _projects = await _taskService.getProjectList();
       notifyListeners();
     } catch (e) {
-      print('TaskProvider loadProjects error: $e');
       _errorMessage = 'Failed to load projects: $e';
       notifyListeners();
     }
@@ -117,7 +105,6 @@ class TaskProvider with ChangeNotifier {
       _workTypes = await _taskService.getWorkTypeList();
       notifyListeners();
     } catch (e) {
-      print('TaskProvider loadWorkTypes error: $e');
       _errorMessage = 'Failed to load work types: $e';
       notifyListeners();
     }
@@ -129,11 +116,9 @@ class TaskProvider with ChangeNotifier {
     String? activityStatus,
     String? taskTitle,
     String? remark,
-    String? studentId,
+    required String studentId,
     required String title,
     required String description,
-    required String assignedTo,
-    required String assignedBy,
     required String team,
     required String project,
     DateTime? dueDate,
@@ -152,11 +137,8 @@ class TaskProvider with ChangeNotifier {
         studentId: studentId,
         title: title,
         description: description,
-        assignedTo: assignedTo,
-        assignedBy: assignedBy,
         team: team,
         project: project,
-        dueDate: dueDate,
         notes: notes,
       );
 
@@ -172,7 +154,6 @@ class TaskProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('TaskProvider createTask error: $e');
       _errorMessage = 'Failed to create task: $e';
       _isLoading = false;
       notifyListeners();
@@ -201,7 +182,6 @@ class TaskProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('TaskProvider updateTaskStatus error: $e');
       _errorMessage = 'Failed to update task status: $e';
       _isLoading = false;
       notifyListeners();
@@ -230,7 +210,6 @@ class TaskProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('TaskProvider updateTaskNotes error: $e');
       _errorMessage = 'Failed to update task notes: $e';
       _isLoading = false;
       notifyListeners();
@@ -267,7 +246,6 @@ class TaskProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('TaskProvider assignTask error: $e');
       _errorMessage = 'Failed to assign task: $e';
       _isLoading = false;
       notifyListeners();
@@ -296,7 +274,6 @@ class TaskProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('TaskProvider setUserOpenToTasks error: $e');
       _errorMessage = 'Failed to update availability: $e';
       _isLoading = false;
       notifyListeners();
@@ -324,7 +301,6 @@ class TaskProvider with ChangeNotifier {
       );
     } catch (e) {
       _errorMessage = 'Failed to filter tasks: $e';
-      print('TaskProvider filterTasks error: $e');
     }
 
     _isLoading = false;
@@ -336,7 +312,6 @@ class TaskProvider with ChangeNotifier {
     try {
       return await _taskService.getTasksByStatus(status);
     } catch (e) {
-      print('TaskProvider getTasksByStatus error: $e');
       return [];
     }
   }
@@ -348,13 +323,14 @@ class TaskProvider with ChangeNotifier {
       final targetUserId = userId ?? _currentUserId;
       return await _taskService.getOpenTasks(targetUserId);
     } catch (e) {
-      print('TaskProvider getOpenTasks error: $e');
       return [];
     }
   }
 
   // Clear filters
   void clearFilters() {
+    // Sort tasks by assigned date (newest first) before setting filtered tasks
+    _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
     _filteredTasks = _tasks;
     _errorMessage = null;
     notifyListeners();
@@ -363,10 +339,11 @@ class TaskProvider with ChangeNotifier {
   // Set tasks directly (for staff dashboard)
   void setTasks(List<Task> tasks) {
     _tasks = tasks;
-    _filteredTasks = tasks;
+    // Sort tasks by assigned date (newest first)
+    _tasks.sort((a, b) => b.assignedDate.compareTo(a.assignedDate));
+    _filteredTasks = _tasks;
     _isLoading = false;
     _errorMessage = null;
     notifyListeners();
-    print('✅ TaskProvider.setTasks() called with ${tasks.length} tasks');
   }
 } 
