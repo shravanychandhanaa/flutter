@@ -323,4 +323,53 @@ class AuthProvider with ChangeNotifier {
       return [];
     }
   }
+
+  // Quick Registration
+  Future<Map<String, dynamic>> quickRegistration({
+    required String fullName,
+    required String collegeId,
+    required String gender,
+    required String countryCode,
+    required String mobile,
+    required String email,
+    required String projectName,
+    required String workCategory,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _authService.quickRegistration(
+        fullName: fullName,
+        collegeId: collegeId,
+        gender: gender,
+        countryCode: countryCode,
+        mobile: mobile,
+        email: email,
+        projectName: projectName,
+        workCategory: workCategory,
+      );
+
+      if (result['success'] == true) {
+        _currentUser = result['user'];
+        _isLoading = false;
+        notifyListeners();
+        return result;
+      } else {
+        _errorMessage = result['message'] ?? 'Quick registration failed';
+        _isLoading = false;
+        notifyListeners();
+        return result;
+      }
+    } catch (e) {
+      _errorMessage = 'Quick registration failed: $e';
+      _isLoading = false;
+      notifyListeners();
+      return {
+        'success': false,
+        'message': 'Quick registration failed: $e',
+      };
+    }
+  }
 } 

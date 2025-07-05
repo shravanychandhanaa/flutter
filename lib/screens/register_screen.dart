@@ -5,6 +5,7 @@ import '../models/college.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'terms_conditions_screen.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,10 +24,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   final _mobileController = TextEditingController();
   final _collegeIdController = TextEditingController();
+  final _projectNameController = TextEditingController();
   
   UserType _selectedUserType = UserType.student;
   String _selectedGender = 'Male';
   String _selectedCountryCode = '+91';
+  String _selectedWorkCategory = 'IT';
   College? _selectedCollege;
   bool _isLoading = false;
   bool _isLoadingColleges = false;
@@ -36,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final List<String> _genderOptions = ['Male', 'Female', 'Other'];
   final List<String> _countryCodes = ['+91', '+1', '+44', '+61', '+86'];
+  final List<String> _workCategories = ['IT', 'Marketing', 'Finance', 'HR', 'Operations', 'Sales', 'Research', 'Other'];
 
   @override
   void initState() {
@@ -91,6 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     _mobileController.dispose();
     _collegeIdController.dispose();
+    _projectNameController.dispose();
     super.dispose();
   }
 
@@ -116,21 +121,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
-      final success = await authProvider.register(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        userType: _selectedUserType,
-        collegeId: _collegeIdController.text.trim(),
-        college: _selectedCollege?.name ?? '',
-        mobile: _mobileController.text.trim(),
-        countryCode: _selectedCountryCode,
-        gender: _selectedGender,
-        // Set default values for required fields
-        city: 'To be updated',
-        likeToBe: 'To be updated',
-        project: 'To be updated',
-      );
+      // Check if we have all required fields for quick registration
+      bool canUseQuickRegistration = _canUseQuickRegistration();
+
+      bool success;
+      
+      if (canUseQuickRegistration) {
+        // Use quick registration
+        final result = await authProvider.quickRegistration(
+          fullName: _nameController.text.trim(),
+          collegeId: _collegeIdController.text.trim(),
+          gender: _selectedGender.toLowerCase(),
+          countryCode: _selectedCountryCode.replaceAll('+', ''),
+          mobile: _mobileController.text.trim(),
+          email: _emailController.text.trim(),
+          projectName: _projectNameController.text.trim(),
+          workCategory: _selectedWorkCategory,
+        );
+        
+        success = result['success'] == true;
+        
+        if (success && mounted) {
+          // Show success dialog with credentials
+          _showQuickRegistrationSuccessDialog(
+            result['generatedEmail'] ?? '',
+            result['generatedPassword'] ?? '',
+          );
+          return; // Don't navigate to login screen yet
+        }
+      } else {
+        // Use regular registration
+        success = await authProvider.register(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          userType: _selectedUserType,
+          collegeId: _collegeIdController.text.trim(),
+          college: _selectedCollege?.name ?? '',
+          mobile: _mobileController.text.trim(),
+          countryCode: _selectedCountryCode,
+          gender: _selectedGender,
+          // Set default values for required fields
+          city: 'To be updated',
+          likeToBe: 'To be updated',
+          project: _projectNameController.text.trim(),
+          workCategory: _selectedWorkCategory,
+        );
+      }
 
       setState(() {
         _isLoading = false;
@@ -148,8 +185,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration failed. Please check your details and try again.'),
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Registration failed. Please check your details and try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -242,6 +279,162 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  bool _canUseQuickRegistration() {
+    return _nameController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty &&
+        _collegeIdController.text.trim().isNotEmpty &&
+        _mobileController.text.trim().isNotEmpty &&
+        _projectNameController.text.trim().isNotEmpty &&
+        _selectedCollege != null &&
+        _selectedUserType == UserType.student;
+  }
+
+  void _showQuickRegistrationSuccessDialog(String email, String password) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Registration Successful!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2d3748),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your account has been created successfully! Please save your login credentials:',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF667eea).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF667eea).withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.email,
+                          size: 16,
+                          color: Color(0xFF667eea),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Username/Email:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Color(0xFF667eea),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      email,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.lock,
+                          size: 16,
+                          color: Color(0xFF667eea),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Password:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Color(0xFF667eea),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      password,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '⚠️ Please save these credentials securely. You can use them to log in to your account.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.orange,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFF667eea),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Proceed to Login',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -301,6 +494,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF667eea).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF667eea).withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Color(0xFF667eea),
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Quick Registration: Fill all required fields for instant registration without password. You can set a password later.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF667eea),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 32),
                       
                       // Full Name
@@ -333,11 +554,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _passwordController,
                         obscureText: true,
                         decoration: const InputDecoration(
-                          labelText: 'Password *',
+                          labelText: 'Password (Optional for Quick Registration)',
                           prefixIcon: Icon(Icons.lock),
                           border: OutlineInputBorder(),
                         ),
-                        validator: _validatePassword,
+                        validator: (value) {
+                          // Password is optional for quick registration
+                          if (value == null || value.isEmpty) {
+                            return null; // Allow empty password
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters long';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       
@@ -346,11 +576,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _confirmPasswordController,
                         obscureText: true,
                         decoration: const InputDecoration(
-                          labelText: 'Confirm Password *',
+                          labelText: 'Confirm Password (Optional for Quick Registration)',
                           prefixIcon: Icon(Icons.lock_outline),
                           border: OutlineInputBorder(),
                         ),
-                        validator: _validateConfirmPassword,
+                        validator: (value) {
+                          // Password confirmation is optional for quick registration
+                          if (value == null || value.isEmpty) {
+                            return null; // Allow empty password
+                          }
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       
@@ -418,33 +657,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
                       
-                      // College Dropdown
+                      // Project Name
+                      TextFormField(
+                        controller: _projectNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Project Name *',
+                          prefixIcon: Icon(Icons.business),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your project name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Work Category
+                      DropdownButtonFormField<String>(
+                        value: _selectedWorkCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Work Category *',
+                          prefixIcon: Icon(Icons.category),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _workCategories.map((String category) {
+                          return DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedWorkCategory = newValue!;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // College Dropdown (Searchable)
                       Container(
                         width: double.infinity,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            DropdownButtonFormField<College>(
-                              value: _selectedCollege,
-                              decoration: const InputDecoration(
-                                labelText: 'Select College *',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: [
-                                const DropdownMenuItem<College>(
-                                  value: null,
-                                  child: Text('Select a college'),
+                            DropdownSearch<College>(
+                              items: _colleges,
+                              itemAsString: (College? c) => c?.name ?? '',
+                              selectedItem: _selectedCollege,
+                              dropdownDecoratorProps: DropDownDecoratorProps(
+                                dropdownSearchDecoration: const InputDecoration(
+                                  labelText: 'Select College *',
+                                  border: OutlineInputBorder(),
                                 ),
-                                ..._colleges.map((college) {
-                                  return DropdownMenuItem<College>(
-                                    value: college,
-                                    child: Text(
-                                      college.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  );
-                                }).toList(),
-                              ],
+                              ),
                               onChanged: _onCollegeSelected,
                               validator: (value) {
                                 try {
@@ -456,14 +723,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   return 'Invalid college selection';
                                 }
                               },
-                              isExpanded: true,
-                              icon: _isLoadingColleges
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.arrow_drop_down),
+                              popupProps: const PopupProps.menu(
+                                showSearchBox: true,
+                                searchFieldProps: TextFieldProps(
+                                  decoration: InputDecoration(
+                                    labelText: 'Search College',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              enabled: !_isLoadingColleges,
+                              dropdownButtonProps: DropdownButtonProps(
+                                icon: _isLoadingColleges
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.arrow_drop_down),
+                              ),
                             ),
                             if (_collegeError != null) ...[
                               const SizedBox(height: 8),
@@ -629,9 +907,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           child: _isLoading
                               ? const CircularProgressIndicator(color: Colors.white)
-                              : const Text(
-                                  'Register',
-                                  style: TextStyle(
+                              : Text(
+                                  _canUseQuickRegistration() ? 'Quick Register' : 'Register',
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,

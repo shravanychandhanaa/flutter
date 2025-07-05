@@ -328,4 +328,11 @@ class ApiService {
     requestData['api_key'] = AppConfig.apiKey;
     return await apiClient.post('Webservices/api3.php?action=delete_user_data', data: requestData);
   }
+
+  // Quick Registration
+  static Future<Response> quickRegistration(Map<String, dynamic> data) async {
+    Map<String, dynamic> requestData = Map<String, dynamic>.from(data);
+    requestData['api_key'] = AppConfig.apiKey;
+    return await apiClient.post('Webservices/api3.php?action=quick_registration', data: requestData);
+  }
 } 

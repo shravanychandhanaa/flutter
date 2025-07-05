@@ -407,6 +407,76 @@ class AuthService {
     }
   }
 
+  // Quick Registration
+  Future<Map<String, dynamic>> quickRegistration({
+    required String fullName,
+    required String collegeId,
+    required String gender,
+    required String countryCode,
+    required String mobile,
+    required String email,
+    required String projectName,
+    required String workCategory,
+  }) async {
+    try {
+      Map<String, dynamic> requestData = {
+        'full_name': fullName,
+        'college_id': collegeId,
+        'gender': gender,
+        'country_code': countryCode,
+        'mobile': mobile,
+        'email': email,
+        'project_name': projectName,
+        'work_category': workCategory,
+      };
+
+      final response = await ApiService.quickRegistration(requestData);
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        
+        if (responseData['responseStatus'] == 200) {
+          // Create user object for local storage
+          final newUser = User(
+            id: responseData['User_Id']?.toString() ?? _uuid.v4(),
+            name: fullName,
+            email: responseData['email'] ?? email,
+            userType: UserType.student,
+            project: projectName,
+          );
+
+          // Store current user locally
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_currentUserKey, jsonEncode(newUser.toJson()));
+
+          return {
+            'success': true,
+            'message': responseData['responseMessage'] ?? 'Quick registration successful',
+            'user': newUser,
+            'userId': responseData['User_Id'],
+            'generatedEmail': responseData['email'],
+            'generatedPassword': responseData['password'],
+          };
+        } else {
+          return {
+            'success': false,
+            'message': responseData['responseMessage'] ?? 'Quick registration failed',
+          };
+        }
+      } else {
+        return {
+          'success': false,
+          'message': 'Network error: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Quick registration failed: $e',
+      };
+    }
+  }
+
   // Validate College ID
   Future<bool> validateCollegeId(String collegeId) async {
     try {
