@@ -5,6 +5,8 @@ import '../providers/attendance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/attendance.dart';
 import '../models/user.dart';
+import '../screens/student_dashboard.dart';
+import '../screens/staff_dashboard.dart';
 
 class StudentAttendanceScreen extends StatefulWidget {
   const StudentAttendanceScreen({super.key});
@@ -72,15 +74,21 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
       );
 
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Attendance marked as present. Awaiting staff approval.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
         _notesController.clear();
         await _loadTodayAttendance();
+        // Auto-navigate to dashboard after marking attendance
+        final userType = authProvider.currentUser!.userType;
+        if (userType == UserType.student) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const StudentDashboard()),
+            (route) => false,
+          );
+        } else if (userType == UserType.staff) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const StaffDashboard()),
+            (route) => false,
+          );
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
