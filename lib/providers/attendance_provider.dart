@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import '../models/attendance.dart';
 import '../models/user.dart';
 import '../services/attendance_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class AttendanceProvider with ChangeNotifier {
   final AttendanceService _attendanceService = AttendanceService();
@@ -380,5 +382,34 @@ class AttendanceProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  // DEVELOPMENT ONLY: Add a test pending attendance record
+  Future<void> addTestPendingAttendance({
+    required String userId,
+    required String userName,
+    required String userEmail,
+    required UserType userType,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final _pendingApprovalsKey = 'pending_attendance_approvals';
+    final pendingJson = prefs.getStringList(_pendingApprovalsKey) ?? [];
+    final attendanceId = DateTime.now().millisecondsSinceEpoch.toString();
+    final attendance = Attendance(
+      id: attendanceId,
+      userId: userId,
+      userName: userName,
+      userEmail: userEmail,
+      date: DateTime.now(),
+      isPresent: true,
+      userType: userType,
+      status: AttendanceStatus.pending,
+      notes: 'Test pending attendance',
+    );
+    pendingJson.add(jsonEncode(attendance.toJson()));
+    await prefs.setStringList(_pendingApprovalsKey, pendingJson);
+    await loadPendingStudentApprovals();
+    await loadPendingStaffApprovals();
+    notifyListeners();
   }
 } 

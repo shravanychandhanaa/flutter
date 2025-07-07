@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../models/attendance.dart';
 import '../models/user.dart';
 import '../screens/attendance_report_screen.dart';
+import '../screens/student_attendance_history_screen.dart'; // Added import for history screen
 
 class AttendanceApprovalScreen extends StatefulWidget {
   const AttendanceApprovalScreen({super.key});
@@ -171,45 +172,54 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<AttendanceProvider, AuthProvider>(
-      builder: (context, attendanceProvider, authProvider, child) {
-        final currentUser = authProvider.currentUser;
-        final pendingApprovals = _getFilteredApprovals();
+    return Scaffold(
+      // Remove the AppBar
+      // Add custom header row with filter and history icons
+      body: Consumer2<AttendanceProvider, AuthProvider>(
+        builder: (context, attendanceProvider, authProvider, child) {
+          final currentUser = authProvider.currentUser;
+          final pendingApprovals = _getFilteredApprovals();
 
-        if (currentUser == null) {
-          return const Center(
-            child: Text('Please log in to view approvals'),
+          return Column(
+            children: [
+              // Custom header row
+              // Remove the custom header row (Container with title and icons) from the body.
+              // The body should start directly with the approvals list and filter indicator, without any header or icons at the top.
+              Expanded(
+                child: pendingApprovals.isEmpty
+                    ? _buildAttendanceReportBody(context, attendanceProvider)
+                    : _ApprovalsListNoAppBar(
+                        pendingApprovals: pendingApprovals,
+                        selectedFilter: _selectedFilter,
+                        onFilterChanged: (value) => setState(() => _selectedFilter = value),
+                        approveAttendance: _approveAttendance,
+                        rejectAttendance: _rejectAttendance,
+                      ),
+              ),
+            ],
           );
-        }
-
-        final noPending = attendanceProvider.pendingStudentApprovals.isEmpty && attendanceProvider.pendingStaffApprovals.isEmpty;
-
-        // Always show filter icon at the top
-        return Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: _showReportFilterDialog,
-                ),
-              ],
-            ),
-            Expanded(
-              child: noPending
-                  ? _buildAttendanceReportBody(context, attendanceProvider)
-                  : _ApprovalsListNoAppBar(
-                      pendingApprovals: pendingApprovals,
-                      selectedFilter: _selectedFilter,
-                      onFilterChanged: (value) => setState(() => _selectedFilter = value),
-                      approveAttendance: _approveAttendance,
-                      rejectAttendance: _rejectAttendance,
-                    ),
-            ),
-          ],
-        );
-      },
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+          final user = authProvider.currentUser;
+          if (user != null) {
+            await attendanceProvider.addTestPendingAttendance(
+              userId: user.id,
+              userName: user.name,
+              userEmail: user.email,
+              userType: user.userType,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Test pending attendance added!')),
+            );
+          }
+        },
+        tooltip: 'Add Test Pending Attendance',
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
@@ -702,15 +712,151 @@ class _ApprovalsListNoAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ... Copy the approvals list UI here, but exclude the AppBar and filter icon ...
     return ListView.builder(
+      padding: const EdgeInsets.all(16),
       itemCount: pendingApprovals.length,
       itemBuilder: (context, index) {
-        final approval = pendingApprovals[index];
-        // ... Build each approval item ...
-        return ListTile(
-          title: Text(approval.userName),
-          // ... other fields ...
+        final attendance = pendingApprovals[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.grey[100],
+                      child: Icon(
+                        attendance.userType == UserType.student 
+                            ? Icons.school 
+                            : Icons.work,
+                        color: Colors.grey[700],
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            attendance.userName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Text(
+                              attendance.userType == UserType.student ? 'Student' : 'Staff',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('MMM d, yyyy').format(attendance.date),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange[200]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 12,
+                            color: Colors.orange[700],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Pending',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (attendance.notes?.isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Notes: \\${attendance.notes}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => approveAttendance(attendance),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Approve'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => rejectAttendance(attendance),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Reject'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

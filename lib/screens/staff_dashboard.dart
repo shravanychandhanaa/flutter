@@ -17,6 +17,7 @@ import 'attendance_report_screen.dart';
 import 'attendance_approval_screen.dart';
 import '../services/task_service.dart';
 import 'student_attendance_screen.dart';
+import 'student_attendance_history_screen.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -2492,6 +2493,18 @@ class _StaffDashboardState extends State<StaffDashboard> {
                   tooltip: 'Refresh',
                 ),
               ],
+            ),
+          if (_currentIndex == 3) // Attendance Approvals tab
+            IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: 'Attendance History',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const StudentAttendanceHistoryScreen(),
+                  ),
+                );
+              },
             ),
           IconButton(
             icon: const Icon(Icons.logout),
