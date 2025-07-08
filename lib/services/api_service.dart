@@ -335,4 +335,13 @@ class ApiService {
     requestData['api_key'] = AppConfig.apiKey;
     return await apiClient.post('Webservices/api3.php?action=quick_registration', data: requestData);
   }
+
+  // Fetch teams for a project (Get, pass project_id and api_key in body)
+  static Future<Response> fetchTeamsByProject(String projectId) async {
+    Map<String, dynamic> requestData = {
+      'project_id': projectId,
+      'api_key': AppConfig.apiKey,
+    };
+    return await apiClient.post('Webservices/api3.php?action=Fetch_Teams', data: requestData);
+  }
 } 

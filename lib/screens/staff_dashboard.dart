@@ -18,6 +18,9 @@ import 'attendance_approval_screen.dart';
 import '../services/task_service.dart';
 import 'student_attendance_screen.dart';
 import 'student_attendance_history_screen.dart';
+import '../services/api_service.dart';
+import 'package:dropdown_search/dropdown_search.dart';
+import 'dart:convert';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -1071,33 +1074,418 @@ class _StaffDashboardState extends State<StaffDashboard> {
   void _showStudentDetails(StudentListItem student) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(student.displayName),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Email: ${student.displayEmail}'),
-              Text('Mobile: ${student.displayMobile}'),
-              Text('College: ${student.displayCollege}'),
-              Text('Project: ${student.displayProject}'),
-              Text('Team: ${student.displayTeam}'),
-              Text('Status: ${student.isActive ? 'Active' : 'Inactive'}'),
-              if (student.isTeamLeader) Text('Role: Team Leader'),
-              if (student.mentorName != null) Text('Mentor: ${student.mentorName}'),
-              if (student.wcName != null) Text('Work Category: ${student.wcName}'),
-              if (student.wtName != null) Text('Work Type: ${student.wtName}'),
-              if (student.state != null) Text('State: ${student.state}'),
-              if (student.city != null) Text('City: ${student.city}'),
-              if (student.hobbies != null) Text('Hobbies: ${student.hobbies}'),
+      builder: (context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 400;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            backgroundColor: Colors.grey[50],
+            title: Row(
+              children: [
+                Icon(Icons.person, color: Colors.blueAccent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    student.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+                ),
+              ],
+            ),
+            content: Container(
+              width: isWide ? 400 : double.maxFinite,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _infoTile(Icons.email, 'Email', student.displayEmail),
+                  _infoTile(Icons.phone, 'Mobile', student.displayMobile),
+                  _infoTile(Icons.school, 'College', student.displayCollege),
+                  // Project field: show button if not assigned, else show project name
+                  if (student.projectName == null || student.projectName!.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.add_box_rounded),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurpleAccent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        onPressed: () {
+                          _showAssignProjectDialog(student);
+                        },
+                        label: const Text('Assign Project'),
+                      ),
+                    )
+                  else
+                    _infoTile(Icons.assignment, 'Project', student.projectName ?? ''),
+                  // Team field: show button if not assigned, else show team name
+                  if (student.teamName == null || student.teamName!.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.group_add),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        onPressed: () {
+                          _showAssignTeamDialog(student);
+                        },
+                        label: const Text('Assign Team'),
+                      ),
+                    )
+                  else
+                    _infoTile(Icons.group, 'Team', student.teamName ?? ''),
+                  _infoTile(Icons.verified_user, 'Status', student.isActive ? 'Active' : 'Inactive',
+                    valueColor: student.isActive ? Colors.green : Colors.red),
+                  if (student.isTeamLeader)
+                    _infoTile(Icons.star, 'Role', 'Team Leader', valueColor: Colors.orange),
+                  if (student.mentorName != null)
+                    _infoTile(Icons.person_outline, 'Mentor', student.mentorName!),
+                  if (student.wcName != null)
+                    _infoTile(Icons.category, 'Work Category', student.wcName!),
+                  if (student.wtName != null)
+                    _infoTile(Icons.work, 'Work Type', student.wtName!),
+                  if (student.state != null)
+                    _infoTile(Icons.location_on, 'State', student.state!),
+                  if (student.city != null)
+                    _infoTile(Icons.location_city, 'City', student.city!),
+                  if (student.hobbies != null)
+                    _infoTile(Icons.sports_esports, 'Hobbies', student.hobbies!),
+                  // Requested Project (always as text)
+                  if (student.requestProject != null && student.requestProject!.isNotEmpty)
+                    _infoTile(Icons.request_page, 'Requested Project', student.requestProject!),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
             ],
+          );
+        },
+      ),
+    );
+  }
+
+  // Helper widget for info rows
+  Widget _infoTile(IconData icon, String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.blueGrey[400]),
+          const SizedBox(width: 8),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                color: valueColor ?? Colors.black87,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show dialog to assign a project (hardcoded list)
+  void _showAssignProjectDialog(StudentListItem student) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return FutureBuilder(
+          future: ApiService.getProjectList({"table_name": "project"}),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const AlertDialog(
+                title: Text('Assign Project'),
+                content: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+              );
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return AlertDialog(
+                title: const Text('Assign Project'),
+                content: const Text('Failed to load projects. Please try again.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
+              );
+            }
+            final response = snapshot.data as dynamic;
+            final data = response.data;
+            final List projects = (data['posts'] ?? []) as List;
+            String? selectedProjectId;
+            String? selectedProjectName;
+            String? selectedTeamId;
+            String? selectedTeamName;
+            String? teamLeader = '';
+            String? teamGuide = '';
+            String? role = '';
+            String? source = '';
+            String? studentType = '';
+            List teams = [];
+            bool isLoadingTeams = false;
+            bool teamError = false;
+            void fetchTeams(String? projectId) async {
+              if (projectId == null) return;
+              setState(() {
+                isLoadingTeams = true;
+                teamError = false;
+                teams = [];
+                selectedTeamId = null;
+                selectedTeamName = null;
+              });
+              try {
+                final teamResp = await ApiService.fetchTeamsByProject(projectId);
+                dynamic teamData = teamResp.data;
+                // If the response is a String, parse it as JSON
+                if (teamData is String) {
+                  teamData = jsonDecode(teamData);
+                }
+                setState(() {
+                  teams = (teamData['posts'] ?? []) as List;
+                  isLoadingTeams = false;
+                  print('Teams set: $teams');
+                  print('Teams count: \\${teams.length}');
+                  if (teams.isNotEmpty && selectedTeamId == null) {
+                    selectedTeamId = teams[0]['id'];
+                    print('Default selectedTeamId set to: $selectedTeamId');
+                  }
+                });
+              } catch (e) {
+                setState(() {
+                  isLoadingTeams = false;
+                  teamError = true;
+                });
+              }
+            }
+            return StatefulBuilder(
+              builder: (context, setState) => AlertDialog(
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Assign Project'),
+                    const SizedBox(height: 4),
+                    Text('Student: ${student.displayName}', style: const TextStyle(fontSize: 14, color: Colors.blueGrey)),
+                  ],
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Project Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedProjectId,
+                        items: projects
+                            .map<DropdownMenuItem<String>>((proj) => DropdownMenuItem<String>(
+                                  value: proj['id'] as String? ?? '',
+                                  child: Text(proj['name'] as String? ?? ''),
+                                ))
+                            .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'Select Project',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedProjectId = value;
+                            selectedProjectName = projects.firstWhere((p) => p['id'] == value)['name'];
+                          });
+                          fetchTeams(value);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      if (isLoadingTeams)
+                        const Center(child: CircularProgressIndicator()),
+                      if (teamError)
+                        Row(
+                          children: [
+                            const Expanded(child: Text('Failed to load teams. Please try again.', style: TextStyle(color: Colors.red))),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, color: Colors.blue),
+                              tooltip: 'Retry',
+                              onPressed: () => fetchTeams(selectedProjectId),
+                            ),
+                          ],
+                        ),
+                      if (!isLoadingTeams && !teamError && selectedProjectId != null) ...[
+                        const SizedBox(height: 16),
+                        // Always show Team Dropdown and related fields
+                        DropdownButtonFormField<String>(
+                          value: selectedTeamId,
+                          items: selectedProjectId == null
+                              ? [
+                                  const DropdownMenuItem<String>(
+                                    value: null,
+                                    child: Text('Select a project first'),
+                                  ),
+                                ]
+                              : teams
+                                  .map<DropdownMenuItem<String>>((team) => DropdownMenuItem<String>(
+                                        value: team['id'] as String? ?? '',
+                                        child: Text(team['team_name'] as String? ?? ''),
+                                      ))
+                                  .toList(),
+                          decoration: const InputDecoration(
+                            labelText: 'Select Team',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: selectedProjectId == null
+                              ? null
+                              : (value) {
+                                  final teamObj = teams.firstWhere((t) => t['id'] == value, orElse: () => {});
+                                  setState(() {
+                                    selectedTeamId = teamObj['id'];
+                                    selectedTeamName = teamObj['team_name'];
+                                    teamLeader = teamObj['team_leader_name'] ?? '';
+                                    teamGuide = teamObj['team_guide_name'] ?? '';
+                                    role = '';
+                                    source = '';
+                                    studentType = '';
+                                  });
+                                },
+                        ),
+                        const SizedBox(height: 16),
+                        // Always show the fields, but disable until a team is selected
+                        TextFormField(
+                          initialValue: teamLeader,
+                          readOnly: true,
+                          enabled: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Team Leader',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          initialValue: teamGuide,
+                          readOnly: true,
+                          enabled: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Team Guide',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          initialValue: role,
+                          onChanged: selectedTeamId == null ? null : (val) => role = val,
+                          enabled: selectedTeamId != null,
+                          decoration: const InputDecoration(
+                            labelText: 'Role',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          initialValue: source,
+                          onChanged: selectedTeamId == null ? null : (val) => source = val,
+                          enabled: selectedTeamId != null,
+                          decoration: const InputDecoration(
+                            labelText: 'Source',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          initialValue: studentType,
+                          onChanged: selectedTeamId == null ? null : (val) => studentType = val,
+                          enabled: selectedTeamId != null,
+                          decoration: const InputDecoration(
+                            labelText: 'Student Type',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: selectedProjectId != null && selectedTeamId != null
+                        ? () {
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Assigned "$selectedProjectName" and "$selectedTeamName" to ${student.displayName}')),
+                            );
+                          }
+                        : null,
+                    child: const Text('Assign'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Show dialog to assign a team (hardcoded list)
+  void _showAssignTeamDialog(StudentListItem student) {
+    final List<String> teams = [
+      'Team Red',
+      'Team Blue',
+      'Team Green',
+      'Team Yellow',
+    ];
+    String? selectedTeam;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Assign Team'),
+        content: StatefulBuilder(
+          builder: (context, setState) => DropdownButtonFormField<String>(
+            value: selectedTeam,
+            items: teams
+                .map((team) => DropdownMenuItem(
+                      value: team,
+                      child: Text(team),
+                    ))
+                .toList(),
+            onChanged: (value) => setState(() => selectedTeam = value),
+            decoration: const InputDecoration(
+              labelText: 'Select Team',
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: selectedTeam == null
+                ? null
+                : () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Assigned "$selectedTeam" to ${student.displayName}')),
+                    );
+                  },
+            child: const Text('Assign'),
           ),
         ],
       ),
