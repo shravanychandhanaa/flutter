@@ -29,22 +29,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   UserType _selectedUserType = UserType.student;
   String _selectedGender = 'Male';
   String _selectedCountryCode = '+91';
-  String _selectedWorkCategory = 'IT';
+  String? _selectedWorkCategory;
   College? _selectedCollege;
   bool _isLoading = false;
   bool _isLoadingColleges = false;
+  bool _isLoadingProjects = false;
+  bool _isLoadingWorkCategories = false;
   List<College> _colleges = [];
   String? _collegeError;
+  String? _projectError;
+  String? _workCategoryError;
   bool _acceptedTerms = false;
 
   final List<String> _genderOptions = ['Male', 'Female', 'Other'];
   final List<String> _countryCodes = ['+91', '+1', '+44', '+61', '+86'];
-  final List<String> _workCategories = ['IT', 'Marketing', 'Finance', 'HR', 'Operations', 'Sales', 'Research', 'Other'];
+  List<String> _workCategories = [];
+  List<String> _projectNames = [];
+  List<String> _selectedProjects = [];
+  List<Map<String, String>> _projectData = []; // Store both id and name
+  List<String> _selectedProjectIds = [];
 
   @override
   void initState() {
     super.initState();
     _loadColleges();
+    _loadProjects();
+    _loadWorkCategories();
   }
 
   void _onCollegeSelected(College? college) {
@@ -82,6 +92,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() {
           _collegeError = 'Failed to load colleges: $e';
           _isLoadingColleges = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      setState(() {
+        _isLoadingProjects = true;
+        _projectError = null;
+      });
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final projects = await authProvider.getAllProjects();
+
+      if (mounted) {
+        setState(() {
+          _projectData = projects;
+          _projectNames = projects.map((project) => project['name']!).toList();
+          _isLoadingProjects = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _projectError = 'Failed to load projects: $e';
+          _isLoadingProjects = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadWorkCategories() async {
+    try {
+      setState(() {
+        _isLoadingWorkCategories = true;
+        _workCategoryError = null;
+      });
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final categories = await authProvider.getAllWorkCategories();
+
+      if (mounted) {
+        setState(() {
+          _workCategories = categories;
+          _isLoadingWorkCategories = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _workCategoryError = 'Failed to load work categories: $e';
+          _isLoadingWorkCategories = false;
         });
       }
     }
@@ -135,8 +196,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           countryCode: _selectedCountryCode.replaceAll('+', ''),
           mobile: _mobileController.text.trim(),
           email: _emailController.text.trim(),
-          projectName: _projectNameController.text.trim(),
-          workCategory: _selectedWorkCategory,
+          projectName: _selectedProjectIds.join(','),
+          workCategory: _selectedWorkCategory ?? '',
         );
         
         success = result['success'] == true;
@@ -164,8 +225,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           // Set default values for required fields
           city: 'To be updated',
           likeToBe: 'To be updated',
-          project: _projectNameController.text.trim(),
-          workCategory: _selectedWorkCategory,
+          project: _selectedProjectIds.join(','),
+          workCategory: _selectedWorkCategory ?? '',
         );
       }
 
@@ -284,7 +345,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.trim().isNotEmpty &&
         _collegeIdController.text.trim().isNotEmpty &&
         _mobileController.text.trim().isNotEmpty &&
-        _projectNameController.text.trim().isNotEmpty &&
+        _selectedProjects.isNotEmpty &&
+        _selectedWorkCategory != null &&
         _selectedCollege != null &&
         _selectedUserType == UserType.student;
   }
@@ -658,41 +720,204 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 16),
                       
                       // Project Name
-                      TextFormField(
-                        controller: _projectNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Project Name *',
-                          prefixIcon: Icon(Icons.business),
-                          border: OutlineInputBorder(),
+                      Container(
+                        width: double.infinity,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownSearch<String>.multiSelection(
+                              items: _projectNames,
+                              selectedItems: _selectedProjects,
+                              dropdownDecoratorProps: DropDownDecoratorProps(
+                                dropdownSearchDecoration: InputDecoration(
+                                  labelText: 'Project Names *',
+                                  border: const OutlineInputBorder(),
+                                  suffixIcon: _isLoadingProjects
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                              onChanged: _isLoadingProjects || _projectNames.isEmpty ? null : (List<String> newValues) {
+                                setState(() {
+                                  _selectedProjects = newValues;
+                                  // Update selected project IDs based on selected names
+                                  _selectedProjectIds = _projectData
+                                      .where((project) => newValues.contains(project['name']))
+                                      .map((project) => project['id']!)
+                                      .toList();
+                                  _projectNameController.text = newValues.join(', ');
+                                });
+                              },
+                              validator: (values) {
+                                if (values == null || values.isEmpty) {
+                                  return 'Please select at least one project';
+                                }
+                                return null;
+                              },
+                              popupProps: const PopupPropsMultiSelection.menu(
+                                showSearchBox: true,
+                                searchFieldProps: TextFieldProps(
+                                  decoration: InputDecoration(
+                                    labelText: 'Search Projects',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                constraints: BoxConstraints(maxHeight: 300),
+                              ),
+                              enabled: !_isLoadingProjects && _projectNames.isNotEmpty,
+                              dropdownButtonProps: DropdownButtonProps(
+                                icon: _isLoadingProjects
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.arrow_drop_down),
+                              ),
+                              itemAsString: (String project) => project,
+                            ),
+                            if (_projectError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _projectError!,
+                                style: const TextStyle(color: Colors.red, fontSize: 12),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: _loadProjects,
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                              ),
+                            ] else if (_projectNames.isEmpty && !_isLoadingProjects) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Text(
+                                    'No projects available',
+                                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                                  ),
+                                  const Spacer(),
+                                  ElevatedButton.icon(
+                                    onPressed: _loadProjects,
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Refresh'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF667eea),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your project name';
-                          }
-                          return null;
-                        },
                       ),
                       const SizedBox(height: 16),
                       
                       // Work Category
-                      DropdownButtonFormField<String>(
-                        value: _selectedWorkCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Work Category *',
-                          prefixIcon: Icon(Icons.category),
-                          border: OutlineInputBorder(),
+                      Container(
+                        width: double.infinity,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownSearch<String>(
+                              items: _workCategories,
+                              selectedItem: _workCategories.contains(_selectedWorkCategory) ? _selectedWorkCategory : null,
+                              dropdownDecoratorProps: DropDownDecoratorProps(
+                                dropdownSearchDecoration: InputDecoration(
+                                  labelText: 'Work Category *',
+                                  border: const OutlineInputBorder(),
+                                  suffixIcon: _isLoadingWorkCategories
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                              onChanged: _isLoadingWorkCategories || _workCategories.isEmpty ? null : (String? newValue) {
+                                setState(() {
+                                  _selectedWorkCategory = newValue;
+                                });
+                              },
+                              popupProps: const PopupProps.menu(
+                                showSearchBox: true,
+                                searchFieldProps: TextFieldProps(
+                                  decoration: InputDecoration(
+                                    labelText: 'Search Work Category',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              enabled: !_isLoadingWorkCategories && _workCategories.isNotEmpty,
+                              dropdownButtonProps: DropdownButtonProps(
+                                icon: _isLoadingWorkCategories
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.arrow_drop_down),
+                              ),
+                            ),
+                            if (_workCategoryError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _workCategoryError!,
+                                style: const TextStyle(color: Colors.red, fontSize: 12),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: _loadWorkCategories,
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                              ),
+                            ] else if (_workCategories.isEmpty && !_isLoadingWorkCategories) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Text(
+                                    'No work categories available',
+                                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                                  ),
+                                  const Spacer(),
+                                  ElevatedButton.icon(
+                                    onPressed: _loadWorkCategories,
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Refresh'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF667eea),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
-                        items: _workCategories.map((String category) {
-                          return DropdownMenuItem<String>(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedWorkCategory = newValue!;
-                          });
-                        },
                       ),
                       const SizedBox(height: 16),
                       

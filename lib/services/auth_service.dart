@@ -594,7 +594,7 @@ class AuthService {
   // Get All Colleges
   Future<List<College>> getAllColleges() async {
     try {
-      final response = await ApiService.getAllColleges();
+      final response = await ApiService.getCollegeList();
       
       print('🏫 College API Response Status: ${response.statusCode}');
       print('🏫 College API Response Data: ${response.data}');
@@ -607,7 +607,8 @@ class AuthService {
         
         if (responseData['responseStatus'] == 200 || responseData['status'] == 'success') {
           // Try different possible keys for colleges data
-          collegesList = responseData['colleges'] ?? 
+          collegesList = responseData['posts'] ?? 
+                        responseData['colleges'] ?? 
                         responseData['college_list'] ?? 
                         responseData['data'] ?? 
                         responseData['result'] ?? 
@@ -620,7 +621,14 @@ class AuthService {
           return [];
         }
         
-        final colleges = collegesList.map<College>((collegeData) => College.fromJson(collegeData)).toList();
+        final colleges = collegesList.map<College>((collegeData) {
+          // Handle the specific format from the API response
+          return College(
+            id: collegeData['id']?.toString() ?? '',
+            name: collegeData['name']?.toString() ?? '',
+          );
+        }).toList();
+        
         print('🏫 Parsed ${colleges.length} colleges successfully');
         return colleges;
       } else {
@@ -629,6 +637,93 @@ class AuthService {
       }
     } catch (e) {
       print('❌ Get colleges error: $e');
+      return [];
+    }
+  }
+
+  // Get All Projects
+  Future<List<Map<String, String>>> getAllProjects() async {
+    try {
+      final response = await ApiService.getProjectListFromMaster();
+      
+      print('📋 Project API Response Status: ${response.statusCode}');
+      print('📋 Project API Response Data: ${response.data}');
+      
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        
+        List<dynamic> projectsList = [];
+        
+        if (responseData['responseStatus'] == 200 || responseData['status'] == 'success') {
+          projectsList = responseData['posts'] ?? 
+                        responseData['projects'] ?? 
+                        responseData['data'] ?? 
+                        responseData['result'] ?? 
+                        [];
+          
+          print('📋 Found ${projectsList.length} projects in response');
+        } else {
+          print('❌ Get projects failed: ${responseData['responseMessage'] ?? responseData['message']}');
+          return [];
+        }
+        
+        final projects = projectsList.map<Map<String, String>>((projectData) {
+          return {
+            'id': projectData['id']?.toString() ?? '',
+            'name': projectData['name']?.toString() ?? '',
+          };
+        }).where((project) => project['name']!.isNotEmpty).toList();
+        
+        print('📋 Parsed ${projects.length} projects successfully');
+        return projects;
+      } else {
+        print('❌ Get projects HTTP error: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Get projects error: $e');
+      return [];
+    }
+  }
+
+  // Get All Work Categories
+  Future<List<String>> getAllWorkCategories() async {
+    try {
+      final response = await ApiService.getWorkCategoryList();
+      
+      print('🏷️ Work Category API Response Status: ${response.statusCode}');
+      print('🏷️ Work Category API Response Data: ${response.data}');
+      
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        
+        List<dynamic> categoriesList = [];
+        
+        if (responseData['responseStatus'] == 200 || responseData['status'] == 'success') {
+          categoriesList = responseData['posts'] ?? 
+                         responseData['work_categories'] ?? 
+                         responseData['data'] ?? 
+                         responseData['result'] ?? 
+                         [];
+          
+          print('🏷️ Found ${categoriesList.length} work categories in response');
+        } else {
+          print('❌ Get work categories failed: ${responseData['responseMessage'] ?? responseData['message']}');
+          return [];
+        }
+        
+        final categories = categoriesList.map<String>((categoryData) {
+          return categoryData['name']?.toString() ?? '';
+        }).where((name) => name.isNotEmpty).toList();
+        
+        print('🏷️ Parsed ${categories.length} work categories successfully');
+        return categories;
+      } else {
+        print('❌ Get work categories HTTP error: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Get work categories error: $e');
       return [];
     }
   }

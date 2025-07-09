@@ -137,6 +137,36 @@ class ApiService {
     return await apiClient.post('Webservices/api3.php?action=college_list', data: requestData);
   }
 
+  // Get College List using Master_List endpoint
+  static Future<Response> getCollegeList() async {
+    Map<String, dynamic> requestData = {
+      'table_name': 'college_list',
+      'api_key': AppConfig.apiKey,
+    };
+    
+    return await apiClient.post('Webservices/api3.php?action=Master_List', data: requestData);
+  }
+
+  // Get Project List using Master_List endpoint
+  static Future<Response> getProjectListFromMaster() async {
+    Map<String, dynamic> requestData = {
+      'table_name': 'project',
+      'api_key': AppConfig.apiKey,
+    };
+    
+    return await apiClient.post('Webservices/api3.php?action=Master_List', data: requestData);
+  }
+
+  // Get Work Category List using Master_List endpoint
+  static Future<Response> getWorkCategoryList() async {
+    Map<String, dynamic> requestData = {
+      'table_name': 'work_category',
+      'api_key': AppConfig.apiKey,
+    };
+    
+    return await apiClient.post('Webservices/api3.php?action=Master_List', data: requestData);
+  }
+
   // Teacher Registration
   static Future<Response> registerTeacher(Map<String, dynamic> data) async {
     Map<String, dynamic> requestData = Map<String, dynamic>.from(data);

@@ -324,6 +324,28 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Get all projects
+  Future<List<Map<String, String>>> getAllProjects() async {
+    try {
+      return await _authService.getAllProjects();
+    } catch (e) {
+      _errorMessage = 'Failed to get projects: $e';
+      notifyListeners();
+      return [];
+    }
+  }
+
+  // Get all work categories
+  Future<List<String>> getAllWorkCategories() async {
+    try {
+      return await _authService.getAllWorkCategories();
+    } catch (e) {
+      _errorMessage = 'Failed to get work categories: $e';
+      notifyListeners();
+      return [];
+    }
+  }
+
   // Quick Registration
   Future<Map<String, dynamic>> quickRegistration({
     required String fullName,
