@@ -1262,11 +1262,8 @@ class _StaffDashboardState extends State<StaffDashboard> {
                   teams = (teamData['posts'] ?? []) as List;
                   isLoadingTeams = false;
                   print('Teams set: $teams');
-                  print('Teams count: \\${teams.length}');
-                  if (teams.isNotEmpty && selectedTeamId == null) {
-                    selectedTeamId = teams[0]['id'];
-                    print('Default selectedTeamId set to: $selectedTeamId');
-                  }
+                  print('Teams count: ${teams.length}');
+                  selectedTeamId = null; // Always reset after fetching
                 });
               } catch (e) {
                 setState(() {
@@ -1290,6 +1287,14 @@ class _StaffDashboardState extends State<StaffDashboard> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Student Name
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Text(
+                          'Student: ${student.displayName}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey),
+                        ),
+                      ),
                       // Project Dropdown
                       DropdownButtonFormField<String>(
                         value: selectedProjectId,
@@ -1307,113 +1312,131 @@ class _StaffDashboardState extends State<StaffDashboard> {
                           setState(() {
                             selectedProjectId = value;
                             selectedProjectName = projects.firstWhere((p) => p['id'] == value)['name'];
+                            selectedTeamId = null;
+                            selectedTeamName = null;
+                            teamLeader = '';
+                            teamGuide = '';
+                            role = '';
+                            source = '';
+                            studentType = '';
                           });
                           fetchTeams(value);
                         },
                       ),
                       const SizedBox(height: 16),
-                      if (isLoadingTeams)
-                        const Center(child: CircularProgressIndicator()),
-                      if (teamError)
-                        Row(
-                          children: [
-                            const Expanded(child: Text('Failed to load teams. Please try again.', style: TextStyle(color: Colors.red))),
-                            IconButton(
-                              icon: const Icon(Icons.refresh, color: Colors.blue),
-                              tooltip: 'Retry',
-                              onPressed: () => fetchTeams(selectedProjectId),
-                            ),
-                          ],
+                      DropdownButtonFormField<String>(
+                        value: selectedTeamId,
+                        hint: selectedProjectId == null
+                            ? const Text('Select a project first')
+                            : const Text('Select Team'),
+                        items: selectedProjectId == null
+                            ? []
+                            : (teams.isEmpty
+                                ? [
+                                    const DropdownMenuItem<String>(
+                                      value: '-1',
+                                      child: Text('No Team Available'),
+                                    ),
+                                  ]
+                                : teams
+                                    .map<DropdownMenuItem<String>>((team) => DropdownMenuItem<String>(
+                                          value: team['id'] as String? ?? '',
+                                          child: Text(
+                                            (team['team_name'] as String?)?.isNotEmpty == true
+                                                ? team['team_name']
+                                                : 'Team Name not Present',
+                                          ),
+                                        ))
+                                    .toList()),
+                        decoration: const InputDecoration(
+                          labelText: 'Select Team',
+                          border: OutlineInputBorder(),
                         ),
-                      if (!isLoadingTeams && !teamError && selectedProjectId != null) ...[
-                        const SizedBox(height: 16),
-                        // Always show Team Dropdown and related fields
-                        DropdownButtonFormField<String>(
-                          value: selectedTeamId,
-                          items: selectedProjectId == null
-                              ? [
-                                  const DropdownMenuItem<String>(
-                                    value: null,
-                                    child: Text('Select a project first'),
-                                  ),
-                                ]
-                              : teams
-                                  .map<DropdownMenuItem<String>>((team) => DropdownMenuItem<String>(
-                                        value: team['id'] as String? ?? '',
-                                        child: Text(team['team_name'] as String? ?? ''),
-                                      ))
-                                  .toList(),
-                          decoration: const InputDecoration(
-                            labelText: 'Select Team',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: selectedProjectId == null
-                              ? null
-                              : (value) {
-                                  final teamObj = teams.firstWhere((t) => t['id'] == value, orElse: () => {});
-                                  setState(() {
-                                    selectedTeamId = teamObj['id'];
-                                    selectedTeamName = teamObj['team_name'];
-                                    teamLeader = teamObj['team_leader_name'] ?? '';
-                                    teamGuide = teamObj['team_guide_name'] ?? '';
-                                    role = '';
-                                    source = '';
-                                    studentType = '';
-                                  });
-                                },
+                        onChanged: (value) {
+                          if (value == '-1') {
+                            setState(() {
+                              selectedTeamId = '-1';
+                              selectedTeamName = '';
+                              teamLeader = '';
+                              teamGuide = '';
+                            });
+                          } else {
+                            final teamObj = teams.firstWhere((t) => t['id'] == value, orElse: () => {});
+                            setState(() {
+                              selectedTeamId = teamObj['id'];
+                              selectedTeamName = teamObj['team_name'];
+                              teamLeader = teamObj['team_leader_name'] ?? '';
+                              teamGuide = teamObj['team_guide_name'] ?? '';
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+                      // Team Leader (read-only)
+                      TextFormField(
+                        initialValue: teamLeader,
+                        readOnly: true,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Team Leader',
+                          border: OutlineInputBorder(),
                         ),
-                        const SizedBox(height: 16),
-                        // Always show the fields, but disable until a team is selected
-                        TextFormField(
-                          initialValue: teamLeader,
-                          readOnly: true,
-                          enabled: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Team Leader',
-                            border: OutlineInputBorder(),
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Team Guide (read-only)
+                      TextFormField(
+                        initialValue: teamGuide,
+                        readOnly: true,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Team Guide',
+                          border: OutlineInputBorder(),
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: teamGuide,
-                          readOnly: true,
-                          enabled: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Team Guide',
-                            border: OutlineInputBorder(),
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Role Dropdown
+                      DropdownButtonFormField<String>(
+                        value: role?.isNotEmpty == true ? role : null,
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Select Role')),
+                          const DropdownMenuItem(value: 'Member', child: Text('Member')),
+                          const DropdownMenuItem(value: 'Leader', child: Text('Leader')),
+                          const DropdownMenuItem(value: 'Coordinator', child: Text('Coordinator')),
+                        ],
+                        onChanged: selectedTeamId == null ? null : (val) => setState(() => role = val ?? ''),
+                        decoration: const InputDecoration(
+                          labelText: 'Role',
+                          border: OutlineInputBorder(),
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: role,
-                          onChanged: selectedTeamId == null ? null : (val) => role = val,
-                          enabled: selectedTeamId != null,
-                          decoration: const InputDecoration(
-                            labelText: 'Role',
-                            border: OutlineInputBorder(),
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Source Dropdown
+                      DropdownButtonFormField<String>(
+                        value: source?.isNotEmpty == true ? source : null,
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Select Source')),
+                          const DropdownMenuItem(value: 'Referral', child: Text('Referral')),
+                          const DropdownMenuItem(value: 'Walk-in', child: Text('Walk-in')),
+                          const DropdownMenuItem(value: 'Online', child: Text('Online')),
+                        ],
+                        onChanged: selectedTeamId == null ? null : (val) => setState(() => source = val ?? ''),
+                        decoration: const InputDecoration(
+                          labelText: 'Source',
+                          border: OutlineInputBorder(),
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: source,
-                          onChanged: selectedTeamId == null ? null : (val) => source = val,
-                          enabled: selectedTeamId != null,
-                          decoration: const InputDecoration(
-                            labelText: 'Source',
-                            border: OutlineInputBorder(),
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Student Type Field
+                      TextFormField(
+                        initialValue: studentType,
+                        onChanged: selectedTeamId == null ? null : (val) => studentType = val,
+                        enabled: selectedTeamId != null,
+                        decoration: const InputDecoration(
+                          labelText: 'Student Type',
+                          border: OutlineInputBorder(),
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: studentType,
-                          onChanged: selectedTeamId == null ? null : (val) => studentType = val,
-                          enabled: selectedTeamId != null,
-                          decoration: const InputDecoration(
-                            labelText: 'Student Type',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
