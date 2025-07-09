@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/environment_selector.dart';
 import '../config/environment.dart';
 import 'register_screen.dart';
+import 'verification_screen.dart';
 import 'student_dashboard.dart';
 import 'staff_dashboard.dart';
 import '../models/user.dart';
@@ -283,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
+                                builder: (context) => const VerificationScreen(),
                               ),
                             );
                           },

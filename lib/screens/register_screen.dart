@@ -8,7 +8,16 @@ import 'terms_conditions_screen.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String? verifiedPhone;
+  final String? verifiedEmail;
+  final String? verifiedCountryCode;
+  
+  const RegisterScreen({
+    super.key,
+    this.verifiedPhone,
+    this.verifiedEmail,
+    this.verifiedCountryCode,
+  });
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -52,6 +61,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Pre-fill verified data if available
+    if (widget.verifiedPhone != null) {
+      _mobileController.text = widget.verifiedPhone!;
+    }
+    if (widget.verifiedEmail != null) {
+      _emailController.text = widget.verifiedEmail!;
+    }
+    if (widget.verifiedCountryCode != null) {
+      _selectedCountryCode = widget.verifiedCountryCode!;
+    }
+    
     _loadColleges();
     _loadProjects();
     _loadWorkCategories();
@@ -348,7 +369,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _selectedProjects.isNotEmpty &&
         _selectedWorkCategory != null &&
         _selectedCollege != null &&
-        _selectedUserType == UserType.student;
+        _selectedUserType == UserType.student &&
+        (widget.verifiedPhone != null || widget.verifiedEmail != null); // Require verification
   }
 
   void _showQuickRegistrationSuccessDialog(String email, String password) {
@@ -557,33 +579,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF667eea).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF667eea).withOpacity(0.3)),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: Color(0xFF667eea),
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Quick Registration: Fill all required fields for instant registration without password. You can set a password later.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF667eea),
+                      
+                      // Verification Status
+                      if (widget.verifiedPhone != null || widget.verifiedEmail != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.verified_user,
+                                color: Colors.green,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.verifiedPhone != null && widget.verifiedEmail != null
+                                      ? 'Phone and Email verified ✓'
+                                      : widget.verifiedPhone != null
+                                          ? 'Phone number verified ✓'
+                                          : 'Email verified ✓',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                      ],
+                      
+                                              Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF667eea).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF667eea).withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF667eea),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.verifiedPhone != null || widget.verifiedEmail != null
+                                      ? 'Quick Registration: Fill all required fields for instant registration without password. You can set a password later.'
+                                      : 'Quick Registration requires phone/email verification. Please verify your details first.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF667eea),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(height: 32),
                       
                       // Full Name
@@ -602,10 +664,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
+                        enabled: widget.verifiedEmail == null, // Disable if pre-filled
+                        decoration: InputDecoration(
                           labelText: 'Email *',
-                          prefixIcon: Icon(Icons.email),
-                          border: OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.email),
+                          border: const OutlineInputBorder(),
+                          filled: widget.verifiedEmail != null,
+                          fillColor: widget.verifiedEmail != null ? const Color(0xFFF5F5F5) : null,
+                          hintText: widget.verifiedEmail != null ? 'Email verified' : null,
                         ),
                         validator: _validateEmail,
                       ),
@@ -685,10 +751,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: TextFormField(
                               controller: _mobileController,
                               keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
+                              enabled: widget.verifiedPhone == null, // Disable if pre-filled
+                              decoration: InputDecoration(
                                 labelText: 'Mobile Number *',
-                                prefixIcon: Icon(Icons.phone),
-                                border: OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.phone),
+                                border: const OutlineInputBorder(),
+                                filled: widget.verifiedPhone != null,
+                                fillColor: widget.verifiedPhone != null ? const Color(0xFFF5F5F5) : null,
+                                hintText: widget.verifiedPhone != null ? 'Phone verified' : null,
                               ),
                               validator: _validateMobile,
                             ),
@@ -1133,7 +1203,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: _isLoading
                               ? const CircularProgressIndicator(color: Colors.white)
                               : Text(
-                                  _canUseQuickRegistration() ? 'Quick Register' : 'Register',
+                                  _canUseQuickRegistration() 
+                                      ? (widget.verifiedPhone != null || widget.verifiedEmail != null)
+                                          ? 'Quick Register (Verified)'
+                                          : 'Quick Register'
+                                      : 'Register',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
