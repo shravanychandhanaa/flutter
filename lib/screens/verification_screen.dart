@@ -99,13 +99,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> _verifyOtp() async {
-    if (_otpController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the OTP'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
@@ -144,8 +138,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => RegisterScreen(
-                verifiedPhone: _phoneController.text.trim(),
-                verifiedEmail: _emailController.text.trim(),
+                verifiedPhone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+                verifiedEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
                 verifiedCountryCode: _selectedCountryCode,
               ),
             ),
@@ -399,7 +393,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'OTP sent successfully! Please check your phone and email.',
+                                  'OTP sent successfully! Please check your phone and email. Enter the 4-digit OTP below.',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.green,
@@ -413,17 +407,58 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         
                         // OTP Input
                         TextFormField(
+                          key: const ValueKey('otp_field'),
                           controller: _otpController,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(6),
+                            LengthLimitingTextInputFormatter(4),
                           ],
                           decoration: const InputDecoration(
                             labelText: 'Enter OTP *',
                             prefixIcon: Icon(Icons.security),
                             border: OutlineInputBorder(),
-                            hintText: '6-digit OTP',
+                            hintText: '4-digit OTP',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter the OTP';
+                            }
+                            if (value.trim().length != 4) {
+                              return 'OTP must be exactly 4 digits';
+                            }
+                            if (!RegExp(r'^\d{4}$').hasMatch(value.trim())) {
+                              return 'OTP must contain only numbers';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        // Helper text for OTP
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue,
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Enter the 4-digit OTP sent to your phone/email. The OTP is case-sensitive.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),

@@ -370,7 +370,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _selectedWorkCategory != null &&
         _selectedCollege != null &&
         _selectedUserType == UserType.student &&
-        (widget.verifiedPhone != null || widget.verifiedEmail != null); // Require verification
+        ((widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) || 
+         (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty)); // Require verification
   }
 
   void _showQuickRegistrationSuccessDialog(String email, String password) {
@@ -581,7 +582,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 8),
                       
                       // Verification Status
-                      if (widget.verifiedPhone != null || widget.verifiedEmail != null) ...[
+                      if ((widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) || 
+                          (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty)) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -599,9 +601,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  widget.verifiedPhone != null && widget.verifiedEmail != null
+                                  (widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) && 
+                                  (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty)
                                       ? 'Phone and Email verified ✓'
-                                      : widget.verifiedPhone != null
+                                      : (widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty)
                                           ? 'Phone number verified ✓'
                                           : 'Email verified ✓',
                                   style: const TextStyle(
@@ -634,7 +637,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  widget.verifiedPhone != null || widget.verifiedEmail != null
+                                  ((widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) || 
+                                   (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty))
                                       ? 'Quick Registration: Fill all required fields for instant registration without password. You can set a password later.'
                                       : 'Quick Registration requires phone/email verification. Please verify your details first.',
                                   style: const TextStyle(
@@ -664,14 +668,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        enabled: widget.verifiedEmail == null, // Disable if pre-filled
+                        enabled: widget.verifiedEmail == null || widget.verifiedEmail!.isEmpty, // Only disable if verified and not empty
                         decoration: InputDecoration(
                           labelText: 'Email *',
                           prefixIcon: const Icon(Icons.email),
                           border: const OutlineInputBorder(),
-                          filled: widget.verifiedEmail != null,
-                          fillColor: widget.verifiedEmail != null ? const Color(0xFFF5F5F5) : null,
-                          hintText: widget.verifiedEmail != null ? 'Email verified' : null,
+                          filled: widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty,
+                          fillColor: (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty) ? const Color(0xFFF5F5F5) : null,
+                          hintText: (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty) ? 'Email verified' : 'Enter your email address',
                         ),
                         validator: _validateEmail,
                       ),
@@ -751,14 +755,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: TextFormField(
                               controller: _mobileController,
                               keyboardType: TextInputType.phone,
-                              enabled: widget.verifiedPhone == null, // Disable if pre-filled
+                              enabled: widget.verifiedPhone == null || widget.verifiedPhone!.isEmpty, // Only disable if verified and not empty
                               decoration: InputDecoration(
                                 labelText: 'Mobile Number *',
                                 prefixIcon: const Icon(Icons.phone),
                                 border: const OutlineInputBorder(),
-                                filled: widget.verifiedPhone != null,
-                                fillColor: widget.verifiedPhone != null ? const Color(0xFFF5F5F5) : null,
-                                hintText: widget.verifiedPhone != null ? 'Phone verified' : null,
+                                filled: widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty,
+                                fillColor: (widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) ? const Color(0xFFF5F5F5) : null,
+                                hintText: (widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) ? 'Phone verified' : 'Enter your mobile number',
                               ),
                               validator: _validateMobile,
                             ),
@@ -1202,12 +1206,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           child: _isLoading
                               ? const CircularProgressIndicator(color: Colors.white)
-                              : Text(
-                                  _canUseQuickRegistration() 
-                                      ? (widget.verifiedPhone != null || widget.verifiedEmail != null)
-                                          ? 'Quick Register (Verified)'
-                                          : 'Quick Register'
-                                      : 'Register',
+                                                              : Text(
+                                    _canUseQuickRegistration() 
+                                        ? ((widget.verifiedPhone != null && widget.verifiedPhone!.isNotEmpty) || 
+                                            (widget.verifiedEmail != null && widget.verifiedEmail!.isNotEmpty))
+                                            ? 'Quick Register (Verified)'
+                                            : 'Quick Register'
+                                        : 'Register',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
