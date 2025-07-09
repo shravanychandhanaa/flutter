@@ -374,4 +374,70 @@ class ApiService {
     };
     return await apiClient.post('Webservices/api3.php?action=Fetch_Teams', data: requestData);
   }
+
+  // Add Attendance Record
+  static Future<Response> addAttendanceRecord({
+    required int isPresent,
+    required int userId,
+    required String userType, // "1" for student, "3" for staff
+    String? apiKey,
+  }) async {
+    Map<String, dynamic> requestData = {
+      'is_present': isPresent,
+      'user_id': userId,
+      'user_type': userType,
+      'api_key': apiKey ?? AppConfig.apiKey,
+    };
+    return await apiClient.post('Webservices/api3.php?action=add_attendance_record', data: requestData);
+  }
+
+  // Check if attendance is already marked today
+  static Future<Response> checkTodayAttendance({
+    required int userId,
+    required String userType, // "1" for student, "3" for staff
+    String? apiKey,
+  }) async {
+    Map<String, dynamic> requestData = {
+      'user_id': userId,
+      'user_type': userType,
+      'api_key': apiKey ?? AppConfig.apiKey,
+    };
+    return await apiClient.post('Webservices/api3.php?action=check_today_attendance', data: requestData);
+  }
+
+  // Fetch attendance records (pending, approved, rejected)
+  static Future<Response> fetchAttendanceRecords({
+    required String status, // 'pending', 'approved', 'rejected'
+    String? fromDate, // required if status == 'approved'
+    String? toDate,   // required if status == 'approved'
+    String? apiKey,
+  }) async {
+    final Map<String, dynamic> requestData = {
+      'status': status,
+      'api_key': apiKey ?? AppConfig.apiKey,
+    };
+    if (status == 'approved') {
+      if (fromDate != null) requestData['from_date'] = fromDate;
+      if (toDate != null) requestData['to_date'] = toDate;
+    }
+    return await apiClient.post('Webservices/api3.php?action=get_attendance_records', data: requestData);
+  }
+
+  // Approve or reject attendance
+  static Future<Response> approveOrRejectAttendance({
+    required String attendanceId,
+    required String status, // 'approved' or 'rejected'
+    required String approverId,
+    String? rejectionReason,
+    String? apiKey,
+  }) async {
+    final Map<String, dynamic> requestData = {
+      'attendance_id': attendanceId,
+      'status': status,
+      'approver_id': approverId,
+      'rejection_reason': rejectionReason ?? '',
+      'api_key': apiKey ?? AppConfig.apiKey,
+    };
+    return await apiClient.post('Webservices/api3.php?action=approve_or_reject_attendance', data: requestData);
+  }
 } 

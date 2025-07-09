@@ -60,13 +60,9 @@ class _LoginScreenState extends State<LoginScreen> {
         final user = authProvider.currentUser;
         if (user != null) {
           if (user.userType == UserType.student) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const StudentDashboard()),
-            );
+            Navigator.of(context).pushReplacementNamed('/student-dashboard');
           } else {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const StaffDashboard()),
-            );
+            Navigator.of(context).pushReplacementNamed('/staff-dashboard');
           }
         }
       } else if (mounted) {

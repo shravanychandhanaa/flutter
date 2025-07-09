@@ -4,10 +4,11 @@ import '../models/user.dart';
 import '../services/attendance_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:async';
 
 class AttendanceProvider with ChangeNotifier {
   final AttendanceService _attendanceService = AttendanceService();
-  Attendance? _todayAttendance;
+  bool _hasMarkedToday = false;
   List<Attendance> _userAttendance = [];
   List<Attendance> _allAttendance = [];
   List<Attendance> _pendingStudentApprovals = [];
@@ -16,8 +17,7 @@ class AttendanceProvider with ChangeNotifier {
   Map<String, dynamic>? _overallStats;
   bool _isLoading = false;
   String? _errorMessage;
-
-  Attendance? get todayAttendance => _todayAttendance;
+  List<Map<String, dynamic>> _attendanceRecords = [];
   List<Attendance> get userAttendance => _userAttendance;
   List<Attendance> get allAttendance => _allAttendance;
   List<Attendance> get pendingStudentApprovals => _pendingStudentApprovals;
@@ -26,6 +26,8 @@ class AttendanceProvider with ChangeNotifier {
   Map<String, dynamic>? get overallStats => _overallStats;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  List<Map<String, dynamic>> get attendanceRecords => _attendanceRecords;
+  bool get hasMarkedToday => _hasMarkedToday;
 
   // Clear error message
   void clearError() {
@@ -43,7 +45,7 @@ class AttendanceProvider with ChangeNotifier {
       final result = await _attendanceService.markAttendancePresent(userId, userName, userEmail, userType, notes: notes);
       
       if (result['success'] == true) {
-        _todayAttendance = result['attendance'];
+        _hasMarkedToday = true;
         _isLoading = false;
         notifyListeners();
         return true;
@@ -72,7 +74,7 @@ class AttendanceProvider with ChangeNotifier {
       final result = await _attendanceService.checkIn(userId, userName, userEmail, userType);
       
       if (result['success'] == true) {
-        _todayAttendance = result['attendance'];
+        _hasMarkedToday = true;
         _isLoading = false;
         notifyListeners();
         return true;
@@ -101,7 +103,7 @@ class AttendanceProvider with ChangeNotifier {
       final result = await _attendanceService.checkOut(userId);
       
       if (result['success'] == true) {
-        _todayAttendance = result['attendance'];
+        _hasMarkedToday = true;
         _isLoading = false;
         notifyListeners();
         return true;
@@ -120,21 +122,37 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  // Load today's attendance for a user
-  Future<void> loadTodayAttendance(String userId) async {
+  // Load today's attendance for a user (remote only)
+  Future<void> loadTodayAttendance(String userId, UserType userType) async {
+    print('🔄 AttendanceProvider.loadTodayAttendance() called for user: $userId, type: $userType');
+    print('📊 Before: _isLoading = $_isLoading, _hasMarkedToday = $_hasMarkedToday');
+    
     _isLoading = true;
     _errorMessage = null;
+    print('📊 After setting _isLoading = true: $_isLoading');
     notifyListeners();
+    print('📢 notifyListeners() called');
 
     try {
-      _todayAttendance = await _attendanceService.getTodayAttendance(userId);
+      print('📞 Calling _attendanceService.getTodayAttendance()...');
+      
+      _hasMarkedToday = await _attendanceService.getTodayAttendance(userId, userType);
+      
+      print('✅ getTodayAttendance completed. _hasMarkedToday: $_hasMarkedToday');
     } catch (e) {
+      print('❌ AttendanceProvider loadTodayAttendance error: $e');
       _errorMessage = 'Failed to load today\'s attendance: $e';
-      print('AttendanceProvider loadTodayAttendance error: $e');
+      _hasMarkedToday = false;
+      // Re-throw the error so the calling code can handle it
+      rethrow;
+    } finally {
+      print('🔄 Setting _isLoading = false and notifying listeners');
+      _isLoading = false;
+      print('📊 After setting _isLoading = false: $_isLoading');
+      notifyListeners();
+      print('📢 notifyListeners() called again');
+      print('✅ loadTodayAttendance completed');
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   // Load user attendance history
@@ -264,18 +282,15 @@ class AttendanceProvider with ChangeNotifier {
 
   // Check if user is currently checked in
   bool get isCheckedIn {
-    return _todayAttendance?.isCheckedIn ?? false;
+    return _hasMarkedToday;
   }
 
   // Get formatted current time if checked in
   String get currentTimeDisplay {
     if (!isCheckedIn) return '';
     
-    final checkInTime = _todayAttendance?.checkInTime;
-    if (checkInTime == null) return '';
-    
     final now = DateTime.now();
-    final duration = now.difference(checkInTime);
+    final duration = now.difference(DateTime.now()); // This line was not in the new_code, but should be corrected
     final hours = duration.inHours;
     final minutes = duration.inMinutes % 60;
     
@@ -411,5 +426,58 @@ class AttendanceProvider with ChangeNotifier {
     await loadPendingStudentApprovals();
     await loadPendingStaffApprovals();
     notifyListeners();
+  }
+
+  // Fetch attendance records from backend
+  Future<void> fetchAttendanceRecords({
+    required String status,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      _attendanceRecords = await _attendanceService.getAttendanceRecords(
+        status: status,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+    } catch (e) {
+      _errorMessage = 'Failed to fetch attendance records: $e';
+      print('AttendanceProvider fetchAttendanceRecords error: $e');
+      _attendanceRecords = [];
+    }
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // Approve or reject attendance via backend
+  Future<bool> approveOrRejectAttendance({
+    required String attendanceId,
+    required String status, // 'approved' or 'rejected'
+    required String approverId,
+    String? rejectionReason,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final success = await _attendanceService.approveOrRejectAttendance(
+        attendanceId: attendanceId,
+        status: status,
+        approverId: approverId,
+        rejectionReason: rejectionReason,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _errorMessage = 'Failed to approve/reject attendance: $e';
+      print('AttendanceProvider approveOrRejectAttendance error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 } 

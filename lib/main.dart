@@ -65,12 +65,15 @@ class MainApp extends StatelessWidget {
             seedColor: const Color(0xFF667eea),
           ),
         ),
-        home: const AuthWrapper(),
-        debugShowCheckedModeBanner: false,
+        initialRoute: '/',
         routes: {
+          '/': (context) => const AuthWrapper(),
+          '/student-dashboard': (context) => const StudentDashboard(),
+          '/staff-dashboard': (context) => const StaffDashboard(),
           '/terms-conditions': (context) => const TermsConditionsScreen(),
           '/delete-user-data': (context) => const DeleteUserDataScreen(),
         },
+        debugShowCheckedModeBanner: false,
       ),
     );
   }

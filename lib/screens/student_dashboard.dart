@@ -25,12 +25,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
   bool _isOpenToTasks = false;
   Timer? _timer;
   Map<String, DateTime> _taskStartTimes = {}; // Track start times for in-progress tasks
+  bool _dataLoaded = false; // <-- Add this flag
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      _loadDataOnce();
     });
     // Start timer to update time display for in-progress tasks and attendance
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -43,7 +44,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
   @override
   void dispose() {
     _timer?.cancel();
+    _dataLoaded = false; // Reset flag
     super.dispose();
+  }
+
+  Future<void> _loadDataOnce() async {
+    if (_dataLoaded) return; // <-- Prevent multiple calls
+    _dataLoaded = true;
+    await _loadData();
   }
 
   Future<void> _loadData() async {
@@ -56,10 +64,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
       taskProvider.setCurrentUser(authProvider.currentUser!.id, authProvider.currentUser!.userType);
       
       await taskProvider.loadTasksForUser(authProvider.currentUser!.id);
-      await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
       
-      // Redirect to attendance screen if not marked
-      if (attendanceProvider.todayAttendance == null || !attendanceProvider.todayAttendance!.isPresent) {
+      try {
+        await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id, authProvider.currentUser!.userType);
+      } catch (e) {
+        // Show error message to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to load attendance: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+      
+      // Only redirect to attendance screen if we successfully loaded attendance and user hasn't marked it
+      if (attendanceProvider.hasMarkedToday == false && !attendanceProvider.isLoading) {
         if (ModalRoute.of(context)?.settings.name != '/student_attendance') {
           // Prevent duplicate navigation
           Future.microtask(() {
@@ -480,7 +502,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         }
 
         final tasks = taskProvider.tasks;
-        final todayAttendance = attendanceProvider.todayAttendance;
+        final hasMarkedToday = attendanceProvider.hasMarkedToday;
 
         return RefreshIndicator(
           onRefresh: _loadData,
@@ -615,7 +637,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 const SizedBox(height: 24),
 
                 // Today's Attendance
-                if (todayAttendance != null) ...[
+                if (!hasMarkedToday) ...[
                   const Text(
                     'Today\'s Attendance',
                     style: TextStyle(
@@ -630,8 +652,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       child: Row(
                         children: [
                           Icon(
-                            todayAttendance.isPresent ? Icons.check_circle : Icons.cancel,
-                            color: todayAttendance.isPresent ? Colors.green : Colors.red,
+                            Icons.cancel,
+                            color: Colors.red,
                             size: 32,
                           ),
                           const SizedBox(width: 16),
@@ -640,25 +662,63 @@ class _StudentDashboardState extends State<StudentDashboard> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  todayAttendance.isPresent ? 'Present' : 'Absent',
+                                  'Absent',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 Text(
-                                  'Date: ${DateFormat('MMM dd, yyyy').format(todayAttendance.date)}',
+                                  'Please mark your attendance for today.',
                                   style: TextStyle(
                                     color: Colors.grey[600],
                                   ),
                                 ),
-                                if (todayAttendance.checkInTime != null)
-                                  Text(
-                                    'Check-in: ${DateFormat('HH:mm').format(todayAttendance.checkInTime!)}',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                    ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ] else ...[
+                  const Text(
+                    'Today\'s Attendance',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 32,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Present',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
+                                ),
+                                Text(
+                                  'Date: ${DateFormat('MMM dd, yyyy').format(DateTime.now())}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1134,7 +1194,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   @override
   Widget build(BuildContext context) {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final todayAttendance = attendanceProvider.todayAttendance;
+    final hasMarkedToday = attendanceProvider.hasMarkedToday;
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.currentUser;
 
@@ -1151,9 +1211,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
         ],
       ),
       drawer: user != null ? AppDrawer(user: user, themeColor: _getThemeColor()) : null,
-      body: (attendanceProvider.isLoading)
-          ? const Center(child: CircularProgressIndicator())
-          : (todayAttendance == null || !todayAttendance.isPresent)
+      body: (hasMarkedToday == true)
+          ? IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildDashboardTab(),
+                _buildTasksTab(),
+                _buildAttendanceTab(),
+                _buildProfileTab(),
+              ],
+            )
+          : (hasMarkedToday == false)
               ? const StudentAttendanceScreen()
               : IndexedStack(
                   index: _currentIndex,

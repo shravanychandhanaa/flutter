@@ -7,6 +7,7 @@ import '../models/user.dart';
 import 'api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 
 class AttendanceService {
   static const String _attendanceKey = 'attendance';
@@ -138,27 +139,32 @@ class AttendanceService {
     }
   }
 
-  // Get today's attendance for a user
-  Future<Attendance?> getTodayAttendance(String userId) async {
+  // Get today's attendance for a user (remote only)
+  Future<bool> getTodayAttendance(String userId, UserType userType) async {
+    print('🔄 AttendanceService.getTodayAttendance() called for user: $userId, type: $userType');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
+      print('📞 Making API call to checkTodayAttendance...');
       
-      final today = DateTime.now();
-      final todayDate = DateTime(today.year, today.month, today.day);
+      final response = await ApiService.checkTodayAttendance(
+        userId: int.parse(userId),
+        userType: userType == UserType.student ? "1" : "3",
+      );
       
-      for (String attendanceJsonStr in attendanceJson) {
-        final attendance = Attendance.fromJson(jsonDecode(attendanceJsonStr));
-        if (attendance.userId == userId && 
-            attendance.date.isAtSameMomentAs(todayDate)) {
-          return attendance;
-        }
+      print('📥 API response received: ${response.statusCode}');
+      
+      final data = response.data;
+      print('📊 Response data: $data');
+      
+      if (data != null && data['responseStatus'] == 200) {
+        print('✅ Attendance marked today');
+        return true; // Attendance marked
       }
-      
-      return null;
+      print('❌ No attendance marked today');
+      return false; // Not marked
     } catch (e) {
-      print('Get today attendance error: $e');
-      return null;
+      print('❌ Get today attendance error: $e');
+      // Re-throw the error to show the actual API error
+      rethrow;
     }
   }
 
@@ -435,66 +441,38 @@ class AttendanceService {
     }
   }
 
-  // Mark attendance as present (requires approval)
+  // Mark attendance as present (remote only, check first)
   Future<Map<String, dynamic>> markAttendancePresent(String userId, String userName, String userEmail, UserType userType, {String? notes}) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final attendanceJson = prefs.getStringList(_attendanceKey) ?? [];
-      
-      final today = DateTime.now();
-      final todayDate = DateTime(today.year, today.month, today.day);
-      
-      // Check if attendance already exists for today
-      for (int i = 0; i < attendanceJson.length; i++) {
-        final attendance = Attendance.fromJson(jsonDecode(attendanceJson[i]));
-        if (attendance.userId == userId && 
-            attendance.date.isAtSameMomentAs(todayDate)) {
-          
-          // Update existing record
-          final updatedAttendance = attendance.copyWith(
-            isPresent: true,
-            notes: notes,
-            status: AttendanceStatus.pending,
-          );
-          
-          attendanceJson[i] = jsonEncode(updatedAttendance.toJson());
-          await prefs.setStringList(_attendanceKey, attendanceJson);
-          
-          // Add to pending approvals
-          await _addToPendingApprovals(updatedAttendance);
-          
-          return {
-            'success': true,
-            'message': 'Attendance marked as present. Awaiting approval.',
-            'attendance': updatedAttendance,
-          };
-        }
-      }
-      
-      // Create new attendance record
-      final newAttendance = Attendance(
-        id: _uuid.v4(),
-        userId: userId,
-        userName: userName,
-        userEmail: userEmail,
-        date: todayDate,
-        isPresent: true,
-        notes: notes,
-        status: AttendanceStatus.pending,
-        userType: userType,
+      // 1. Check if attendance is already marked today (remote)
+      final checkResponse = await ApiService.checkTodayAttendance(
+        userId: int.parse(userId),
+        userType: userType == UserType.student ? "1" : "3",
       );
-
-      attendanceJson.add(jsonEncode(newAttendance.toJson()));
-      await prefs.setStringList(_attendanceKey, attendanceJson);
-      
-      // Add to pending approvals
-      await _addToPendingApprovals(newAttendance);
-      
-      return {
-        'success': true,
-        'message': 'Attendance marked as present. Awaiting approval.',
-        'attendance': newAttendance,
-      };
+      final checkData = checkResponse.data;
+      if (checkData != null && checkData['responseStatus'] == 200) {
+        return {
+          'success': false,
+          'message': 'Attendance already marked for today.',
+        };
+      }
+      // 2. If not marked, add attendance (remote)
+      final apiResponse = await ApiService.addAttendanceRecord(
+        isPresent: 1,
+        userId: int.parse(userId),
+        userType: userType == UserType.student ? "1" : "3",
+      );
+      if (apiResponse.statusCode == 200) {
+        return {
+          'success': true,
+          'message': 'Attendance marked as present.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to mark attendance (remote API error)',
+        };
+      }
     } catch (e) {
       print('Mark attendance present error: $e');
       return {
@@ -772,6 +750,51 @@ StartupWorld Team
       }
     } catch (e) {
       print('Send email notification error: $e');
+    }
+  }
+
+  // Fetch attendance records from backend
+  Future<List<Map<String, dynamic>>> getAttendanceRecords({
+    required String status, // 'pending', 'approved', 'rejected'
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final response = await ApiService.fetchAttendanceRecords(
+        status: status,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+      final data = response.data;
+      if (data != null && data['responseStatus'] == 200 && data['data'] is List) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      }
+      return [];
+    } catch (e) {
+      print('Get attendance records error: $e');
+      return [];
+    }
+  }
+
+  // Approve or reject attendance via backend
+  Future<bool> approveOrRejectAttendance({
+    required String attendanceId,
+    required String status, // 'approved' or 'rejected'
+    required String approverId,
+    String? rejectionReason,
+  }) async {
+    try {
+      final response = await ApiService.approveOrRejectAttendance(
+        attendanceId: attendanceId,
+        status: status,
+        approverId: approverId,
+        rejectionReason: rejectionReason,
+      );
+      final data = response.data;
+      return data != null && data['responseStatus'] == 200;
+    } catch (e) {
+      print('Approve/reject attendance error: $e');
+      return false;
     }
   }
 } 

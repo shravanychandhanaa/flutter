@@ -38,7 +38,10 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
     
     if (authProvider.currentUser != null) {
-      await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
+      await attendanceProvider.loadTodayAttendance(
+        authProvider.currentUser!.id,
+        authProvider.currentUser!.userType,
+      );
     }
   }
 
@@ -79,13 +82,13 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
         // Auto-navigate to dashboard after marking attendance
         final userType = authProvider.currentUser!.userType;
         if (userType == UserType.student) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const StudentDashboard()),
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/student-dashboard',
             (route) => false,
           );
         } else if (userType == UserType.staff) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const StaffDashboard()),
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/staff-dashboard',
             (route) => false,
           );
         }
@@ -111,7 +114,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     return Scaffold(
       body: Consumer2<AttendanceProvider, AuthProvider>(
         builder: (context, attendanceProvider, authProvider, child) {
-          final todayAttendance = attendanceProvider.todayAttendance;
           final currentUser = authProvider.currentUser;
 
           if (currentUser == null) {
@@ -153,130 +155,8 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Current attendance status
-                if (todayAttendance != null) ...[
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Current Status',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(
-                                todayAttendance.isPresent ? Icons.check_circle : Icons.cancel,
-                                color: todayAttendance.isPresent ? Colors.green : Colors.red,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      todayAttendance.isPresent ? 'Present' : 'Absent',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: todayAttendance.isPresent ? Colors.green : Colors.red,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    _buildStatusChip(todayAttendance.status),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (todayAttendance.notes?.isNotEmpty == true) ...[
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Notes:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              todayAttendance.notes!,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                          if (todayAttendance.rejectionReason?.isNotEmpty == true) ...[
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Rejection Reason:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              todayAttendance.rejectionReason!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
-                          if (todayAttendance.status == AttendanceStatus.rejected && todayAttendance.approvedBy != null) ...[
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Rejected by:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              todayAttendance.approvedBy!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
-                          if (todayAttendance.status == AttendanceStatus.approved && todayAttendance.approvedBy != null) ...[
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Approved by:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              todayAttendance.approvedBy!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Mark attendance form
-                if (todayAttendance == null || !todayAttendance.isPresent) ...[
+                // Show mark attendance button if not marked today
+                if (!attendanceProvider.hasMarkedToday) ...[
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),

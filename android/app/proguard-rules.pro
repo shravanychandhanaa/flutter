@@ -30,3 +30,6 @@
 
 # Keep your application classes
 -keep class com.startupworld.app.** { *; } 
+# Add these rules
+-keep class com.google.android.play.core.** { *; }
+-keep class com.google.android.play.** { *; } 

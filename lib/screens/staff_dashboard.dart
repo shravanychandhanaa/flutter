@@ -93,9 +93,9 @@ class _StaffDashboardState extends State<StaffDashboard> {
       // Set current user in task provider for correct task reloading
       taskProvider.setCurrentUser(authProvider.currentUser!.id, authProvider.currentUser!.userType);
       // Load today's attendance for staff
-      await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id);
+      await attendanceProvider.loadTodayAttendance(authProvider.currentUser!.id, authProvider.currentUser!.userType);
       // Redirect to attendance screen if not marked and user is staff
-      if (authProvider.currentUser!.userType == UserType.staff && (attendanceProvider.todayAttendance == null || !attendanceProvider.todayAttendance!.isPresent)) {
+      if (authProvider.currentUser!.userType == UserType.staff && !attendanceProvider.hasMarkedToday) {
         if (ModalRoute.of(context)?.settings.name != '/student_attendance') {
           Future.microtask(() {
             Navigator.of(context).pushReplacement(
@@ -2856,7 +2856,6 @@ class _StaffDashboardState extends State<StaffDashboard> {
   @override
   Widget build(BuildContext context) {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final todayAttendance = attendanceProvider.todayAttendance;
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.currentUser;
     if (user == null) {
@@ -2927,17 +2926,15 @@ class _StaffDashboardState extends State<StaffDashboard> {
       drawer: user != null ? AppDrawer(user: user, themeColor: _getThemeColor()) : null,
       body: (attendanceProvider.isLoading)
           ? const Center(child: CircularProgressIndicator())
-          : (todayAttendance == null || !todayAttendance.isPresent)
-              ? const StudentAttendanceScreen()
-              : IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    _buildDashboardTab(),
-                    _buildTasksTab(),
-                    _buildStudentsTab(),
-                    _buildReportsTab(),
-                  ],
-                ),
+          : IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildDashboardTab(),
+                _buildTasksTab(),
+                _buildStudentsTab(),
+                _buildReportsTab(),
+              ],
+            ),
       bottomNavigationBar: StaffBottomNavigation(
         currentIndex: _currentIndex,
         onTap: _onBottomNavTap,
