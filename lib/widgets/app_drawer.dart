@@ -7,6 +7,7 @@ import '../screens/create_task_screen.dart';
 import '../screens/attendance_report_screen.dart';
 import '../screens/terms_conditions_screen.dart';
 import '../screens/delete_user_data_screen.dart';
+import '../screens/crm_screen.dart'; // Import the new CRM screen
 
 class AppDrawer extends StatelessWidget {
   final User user;
@@ -50,7 +51,7 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Navigation items - Make it scrollable
           Expanded(
             child: Container(
@@ -73,7 +74,7 @@ class AppDrawer extends StatelessWidget {
                         }
                       },
                     ),
-                    
+
                     // Tasks section
                     if (user.userType == UserType.staff) ...[
                       const Divider(),
@@ -109,7 +110,7 @@ class AppDrawer extends StatelessWidget {
                         },
                       ),
                     ],
-                    
+
                     // Student Management (Staff only)
                     if (user.userType == UserType.staff) ...[
                       const Divider(),
@@ -144,8 +145,21 @@ class AppDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      // New CRM ListTile
+                      ListTile(
+                        leading: const Icon(Icons.support_agent), // Example icon for CRM
+                        title: const Text('CRM'),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const CrmScreen(), // Navigate to CrmScreen
+                            ),
+                          );
+                        },
+                      ),
                     ],
-                    
+
                     // Student specific items
                     if (user.userType == UserType.student) ...[
                       const Divider(),
@@ -177,9 +191,9 @@ class AppDrawer extends StatelessWidget {
                         },
                       ),
                     ],
-                    
+
                     const Divider(),
-                    
+
                     // Settings
                     ListTile(
                       leading: const Icon(Icons.settings),
@@ -192,7 +206,7 @@ class AppDrawer extends StatelessWidget {
                         );
                       },
                     ),
-                    
+
                     // Help
                     ListTile(
                       leading: const Icon(Icons.help),
@@ -205,9 +219,9 @@ class AppDrawer extends StatelessWidget {
                         );
                       },
                     ),
-                    
+
                     const Divider(),
-                    
+
                     // Terms and Conditions
                     ListTile(
                       leading: const Icon(Icons.description),
@@ -217,9 +231,9 @@ class AppDrawer extends StatelessWidget {
                         Navigator.pushNamed(context, '/terms-conditions');
                       },
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Delete User Data
                     ListTile(
                       leading: const Icon(Icons.delete_forever),
@@ -229,9 +243,9 @@ class AppDrawer extends StatelessWidget {
                         Navigator.pushNamed(context, '/delete-user-data');
                       },
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Logout
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
@@ -243,7 +257,7 @@ class AppDrawer extends StatelessWidget {
                         Navigator.of(context).pop();
                         final authProvider = Provider.of<AuthProvider>(context, listen: false);
                         await authProvider.logout();
-                        
+
                         if (context.mounted) {
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -257,7 +271,7 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // App version
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -273,4 +287,4 @@ class AppDrawer extends StatelessWidget {
       ),
     );
   }
-} 
+}
