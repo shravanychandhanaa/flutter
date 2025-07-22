@@ -1,0 +1,138 @@
+name: Flutter CI/CD
+
+on:
+  push:
+    branches:
+      - main # Or 'master', or your development branch name
+  pull_request:
+    branches:
+      - main # Run on pull requests targeting main
+
+jobs:
+  # Job for building Android and Linux (can run on Ubuntu)
+  android_linux_build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4 # Checks out your repository code
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x.x' # Specify your Flutter version, e.g., '3.19.6'
+          channel: 'stable' # Or 'beta', 'dev'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release
+        # You can add --split-per-abi if needed
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Build Android AppBundle (Release)
+        run: flutter build appbundle --release
+      - name: Upload Android AppBundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-appbundle
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      - name: Build Linux (Release)
+        run: flutter build linux --release
+      - name: Upload Linux Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: build/linux/x64/release/bundle # This path might vary slightly based on your project
+
+
+  # Job for building iOS and macOS (requires macOS runner)
+  ios_macos_build:
+    runs-on: macos-latest # macOS runner required for iOS and macOS builds
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x.x' # Specify your Flutter version
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze # Already run, but good for isolated testing on macOS runner
+
+      - name: Run Flutter tests
+        run: flutter test # Already run, but good for isolated testing on macOS runner
+
+      # Configure for iOS signing (IMPORTANT: Requires secrets for real apps)
+      # This is a placeholder. You'll need to set up fastlane or similar for proper signing.
+      # - name: Install Bundler and Fastlane (if using)
+      #   run: |
+      #     gem install bundler
+      #     bundle install --gemfile=ios/Gemfile # Adjust path if Gemfile is elsewhere
+
+      - name: Build iOS IPA (Release)
+        run: flutter build ipa --release
+        # You will need to add code signing steps here for a real app deployment.
+        # This often involves secrets for certificates and provisioning profiles.
+        # Example for basic archive (does not handle signing fully):
+        # flutter build ios --release --no-codesign
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: build/ios/ipa/*.ipa # Path might vary slightly after signing
+
+      - name: Build macOS (Release)
+        run: flutter build macos --release
+      - name: Upload macOS Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: build/macos/Build/Products/Release # Path might vary
+
+
+  # Job for building Windows (requires Windows runner)
+  windows_build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x.x' # Specify your Flutter version
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Build Windows (Release)
+        run: flutter build windows --release
+      - name: Upload Windows Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/windows/x64/release # This path might vary
